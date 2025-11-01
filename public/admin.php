@@ -1,7 +1,16 @@
 <?php
 $startTime = microtime(true);
 
-if (!session_id()) session_start();
+// Secure Session Configuration
+if (!session_id()) {
+    session_start([
+        'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Strict',
+        'use_strict_mode' => true,
+        'use_only_cookies' => true
+    ]);
+}
 
 // Check for login & admin permission - else kick
 if(!isset($_SESSION['userID'])) {

@@ -11,7 +11,16 @@
 //***********************************************************
 $startTime = microtime(true);
 
-if (!session_id()) session_start();
+// Secure Session Configuration
+if (!session_id()) {
+    session_start([
+        'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Strict',
+        'use_strict_mode' => true,
+        'use_only_cookies' => true
+    ]);
+}
 
 require_once('../config.php');
 require_once('../db.inc.php');

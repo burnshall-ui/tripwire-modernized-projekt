@@ -1,6 +1,6 @@
 <?php
 
-function checkOwner($mask) {
+function checkOwner(string $mask): bool {
 	global $mysql;
 
 	if ($mask == $_SESSION['characterID'].'.1') {
@@ -16,7 +16,7 @@ function checkOwner($mask) {
 	return $stmt->rowCount() == 0 ? false : true;
 }
 
-function checkAdmin($mask) {
+function checkAdmin(string $mask): bool {
 	global $mysql;
 
 	if ($mask == $_SESSION['corporationID'].'.2' && $_SESSION['admin'] == 1) {

@@ -121,7 +121,6 @@ require_once('config.php');
 			<div id="home" class="page">
 				<h1>News</h1>
 
-				<div id="tweetfeed"></div>
 				<!-- <div id="slider">
 					<div class="slide" data-effect-out="slide">
 						<div class="background screenshot">
@@ -605,28 +604,6 @@ require_once('config.php');
 	<script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/landing/jquery.infieldlabel.js"></script>
 	<script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/landing/jquery.echoslider.js"></script>
 	<script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/landing/landing.js"></script>
-	<script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/tweetie.min.js"></script>
-
-	<!-- Twitter feed -->
-	<script type="text/javascript">
-		$('#home #tweetfeed').tweetie({
-			"apiPath": "tweetie.php",
-			"type": "timeline",
-			"params": {"count": 10, "q": "#evetripwire", "result_type": "recent", "exclude_replies": true, "tweet_mode": "extended"},
-			"template": "<p class='tweet'>{{tweet.created_at}} - {{tweet.full_text}}</p>"
-		}, function() {
-			$(".tweet").each(function() {
-				// Remove hashtags
-				$(this).find("a").each(function() {
-					if ($(this).text()[0] == "#") {
-						$(this).remove()
-					}
-				});
-			});
-
-			setTimeout('FluidNav.resizePage()', 300);
-		});
-	</script>
 
 </body>
 </html>

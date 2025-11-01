@@ -1,5 +1,16 @@
 <?php
 
+// Secure Session Configuration
+if (!session_id()) {
+    session_start([
+        'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Strict',
+        'use_strict_mode' => true,
+        'use_only_cookies' => true
+    ]);
+}
+
 $startTime = microtime(true);
 
 // Caching
@@ -37,6 +48,7 @@ if ($row = $stmt->fetchObject()) {
 	$region = 'The Forge';
 	$regionID = 10000002;
 }
+
 
 ?>
 <!DOCTYPE html>
@@ -1094,7 +1106,7 @@ if ($row = $stmt->fetchObject()) {
 
 	<script type="text/javascript">
 
-		var init = <?= json_encode($_SESSION) ?>;
+		var init = <?= htmlspecialchars(json_encode($_SESSION), ENT_QUOTES, 'UTF-8') ?>;
 
 		// Google Analytics
 		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){

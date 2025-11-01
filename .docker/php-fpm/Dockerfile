@@ -4,7 +4,7 @@ RUN yum update -y && \
 
 RUN yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm && \
     yum install -y yum-utils && \
-    yum-config-manager --enable remi-php72 && \
+    yum-config-manager --enable remi-php82 && \
     yum -y update
 
 RUN yum install -y php-fpm php-xml php-cli php-bcmath php-dba php-gd php-intl php-mbstring php-mysql php-pdo php-soap php-pecl-apcu php-pecl-imagick

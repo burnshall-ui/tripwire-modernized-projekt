@@ -12,7 +12,7 @@ class esi {
     public $refreshToken = null;
     public $tokenExpire = null;
 
-    private function getAPI($url, $headers = array(), $params = false) {
+    private function getAPI($url, $headers = [], $params = false) {
 		$curl = curl_init();
 		curl_setopt($curl, CURLOPT_URL, $url);
     curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
@@ -37,13 +37,13 @@ class esi {
 	}
 
     public function login($scope = NULL, $state = 'evessologin') {
-        $params = array(
+        $params = [
             'response_type' => 'code',
             'redirect_uri' => EVE_SSO_REDIRECT,
             'client_id' => EVE_SSO_CLIENT,
             'scope' => $scope,
             'state' => $state
-        );
+        ];
 
         header('Location: '. self::$loginUrl . '/authorize?' . http_build_query($params), true, 302);
     }

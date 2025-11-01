@@ -1,9 +1,7 @@
 # INFO #
 This is a Fork Clone of repo from [Bitbucket](https://bitbucket.org/daimian/tripwire/branch/production)
 
-Some things have changed, read carefully - also Docker has some isssues yet, recommend not using it or helping solve the issues.
-
-The landing page twitter feed won't work since the one I used requires a private token, I will have to find a new way to do it later.
+Some things have changed, read carefully.
 
 ### Tripwire - EVE Online wormhole mapping web tool ###
 
@@ -14,7 +12,7 @@ The landing page twitter feed won't work since the one I used requires a private
 
 Requirements:
 
-* PHP7+ (older requires polyfill for public/login.php as documented in that file)
+* PHP 8.0+
 * php-mbstring must be installed
 * MySQL (or some flavor of MySQL - needed because database EVENTS)
 * A my.cnf MySQL config file example is located in `.docker/mysql/my.cnf`
