@@ -76,6 +76,11 @@ function createContainer(): Container {
         return new WormholeService($c->get('db'));
     });
 
+    // Redis Cache Service
+    $container->set('redis', function($c) {
+        return new RedisService();
+    });
+
     // Views
     $container->set('systemView', function($c) {
         return new SystemView();

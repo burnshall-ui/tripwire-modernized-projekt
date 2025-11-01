@@ -1,14 +1,20 @@
 <?php
 
-// Secure Session Configuration
-if (!session_id()) {
-    session_start([
-        'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
-        'cookie_httponly' => true,
-        'cookie_samesite' => 'Strict',
-        'use_strict_mode' => true,
-        'use_only_cookies' => true
-    ]);
+// Initialize Redis-based session handling
+require_once('services/RedisSessionHandler.php');
+$redisSessionInitialized = RedisSessionHandler::init();
+
+// Fallback to secure file-based sessions if Redis is not available
+if (!$redisSessionInitialized) {
+    if (!session_id()) {
+        session_start([
+            'cookie_secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+            'cookie_httponly' => true,
+            'cookie_samesite' => 'Strict',
+            'use_strict_mode' => true,
+            'use_only_cookies' => true
+        ]);
+    }
 }
 
 $startTime = microtime(true);

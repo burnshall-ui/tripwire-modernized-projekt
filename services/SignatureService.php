@@ -2,12 +2,25 @@
 
 class SignatureService {
     private PDO $db;
+    private ?RedisService $redis;
 
-    public function __construct(PDO $db) {
+    public function __construct(PDO $db, ?RedisService $redis = null) {
         $this->db = $db;
+        $this->redis = $redis;
     }
 
     public function getBySystem(int $systemId, string $maskId): array {
+        $cacheKey = "signatures:system:{$systemId}:{$maskId}";
+
+        // Try cache first
+        if ($this->redis && $this->redis->isConnected()) {
+            $cached = $this->redis->get($cacheKey);
+            if ($cached !== null) {
+                return array_map(fn($data) => new Signature($data), $cached);
+            }
+        }
+
+        // Query database
         $query = 'SELECT * FROM signatures WHERE (systemID = :systemID OR type = "wormhole") AND maskID = :maskID';
         $stmt = $this->db->prepare($query);
         $stmt->bindValue(':systemID', $systemId, PDO::PARAM_INT);
@@ -15,8 +28,18 @@ class SignatureService {
         $stmt->execute();
 
         $signatures = [];
+        $rawData = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $signatures[] = new Signature($row);
+            $signature = new Signature($row);
+            $signatures[] = $signature;
+            $rawData[] = $row;
+        }
+
+        // Cache result for 5 minutes
+        if ($this->redis && $this->redis->isConnected()) {
+            $this->redis->set($cacheKey, $rawData, 300);
+            $this->redis->tagSet("system:{$systemId}", [$cacheKey]);
+            $this->redis->tagSet("mask:{$maskId}", [$cacheKey]);
         }
 
         return $signatures;

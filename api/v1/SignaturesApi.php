@@ -5,10 +5,20 @@ require_once('ApiController.php');
 
 class SignaturesApi extends ApiController {
     private SignatureService $signatureService;
+    private ?RedisService $redis;
 
     public function __construct(PDO $db, array $userData = []) {
         parent::__construct($db, $userData);
-        $this->signatureService = new SignatureService($db);
+        $this->redis = new RedisService();
+        $this->signatureService = new SignatureService($db, $this->redis);
+    }
+
+    private function invalidateCaches(int $systemId, string $maskId): void {
+        if ($this->redis && $this->redis->isConnected()) {
+            // Invalidate system and mask specific caches
+            $this->redis->tagInvalidate("system:{$systemId}");
+            $this->redis->tagInvalidate("mask:{$maskId}");
+        }
     }
 
     public function handleRequest(): void {
@@ -84,6 +94,9 @@ class SignaturesApi extends ApiController {
         try {
             $signature = $this->signatureService->create($data);
 
+            // Invalidate caches
+            $this->invalidateCaches($data['systemID'], $maskId);
+
             // Broadcast update via WebSocket
             $this->signatureService->broadcastUpdate($maskId, $data['systemID'], $signature->toArray());
 
@@ -111,6 +124,9 @@ class SignaturesApi extends ApiController {
         try {
             $success = $this->signatureService->update($id, $data);
             if ($success) {
+                // Invalidate caches
+                $this->invalidateCaches($data['systemID'], $maskId);
+
                 // Get updated signature for broadcasting
                 $signatures = $this->signatureService->getBySystem($data['systemID'], $maskId);
                 $updatedSignature = null;
@@ -151,6 +167,11 @@ class SignaturesApi extends ApiController {
 
             $success = $this->signatureService->delete($id, $maskId);
             if ($success) {
+                // Invalidate caches
+                if ($deletedSignature) {
+                    $this->invalidateCaches($deletedSignature->systemID, $maskId);
+                }
+
                 // Broadcast deletion
                 if ($deletedSignature) {
                     $deletedData = $deletedSignature->toArray();
