@@ -69,7 +69,7 @@ function createContainer(): Container {
     });
 
     $container->set('signatureService', function($c) {
-        return new SignatureService($c->get('db'));
+        return new SignatureService($c->get('db'), $c->get('redis'));
     });
 
     $container->set('wormholeService', function($c) {

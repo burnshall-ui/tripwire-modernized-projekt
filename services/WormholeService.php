@@ -22,7 +22,7 @@ class WormholeService {
     }
 
     public function getBySystem(int $systemId, string $maskId): array {
-        $query = 'SELECT * FROM wormholes WHERE (fromSystemID = :systemID OR toSystemID = :systemID) AND maskID = :maskID';
+        $query = 'SELECT * FROM wormholes WHERE (initialID = :systemID OR secondaryID = :systemID) AND maskID = :maskID';
         $stmt = $this->db->prepare($query);
         $stmt->bindValue(':systemID', $systemId, PDO::PARAM_INT);
         $stmt->bindValue(':maskID', $maskId);
@@ -37,12 +37,12 @@ class WormholeService {
     }
 
     public function create(array $data): Wormhole {
-        $query = 'INSERT INTO wormholes (fromSystemID, toSystemID, signatureID, type, life, mass, createdBy, createdByName, createdTime, modifiedTime, maskID)
-                  VALUES (:fromSystemID, :toSystemID, :signatureID, :type, :life, :mass, :createdBy, :createdByName, :createdTime, :modifiedTime, :maskID)';
+        $query = 'INSERT INTO wormholes (initialID, secondaryID, signatureID, type, life, mass, createdBy, createdByName, createdTime, modifiedTime, maskID)
+                  VALUES (:initialID, :secondaryID, :signatureID, :type, :life, :mass, :createdBy, :createdByName, :createdTime, :modifiedTime, :maskID)';
 
         $stmt = $this->db->prepare($query);
-        $stmt->bindValue(':fromSystemID', $data['fromSystemID'], PDO::PARAM_INT);
-        $stmt->bindValue(':toSystemID', $data['toSystemID'], PDO::PARAM_INT);
+        $stmt->bindValue(':initialID', $data['fromSystemID'], PDO::PARAM_INT);
+        $stmt->bindValue(':secondaryID', $data['toSystemID'], PDO::PARAM_INT);
         $stmt->bindValue(':signatureID', $data['signatureID']);
         $stmt->bindValue(':type', $data['type']);
         $stmt->bindValue(':life', $data['life'], PDO::PARAM_STR);

@@ -26,10 +26,13 @@ require('lib.inc.php');
 
 // Load new modular architecture
 require_once('services/Container.php');
+require_once('services/DatabaseConnection.php');
 require_once('controllers/SystemController.php');
 require_once('services/UserService.php');
 require_once('services/SignatureService.php');
 require_once('services/WormholeService.php');
+require_once('services/RedisService.php');
+require_once('services/RedisSessionHandler.php');
 require_once('views/SystemView.php');
 require_once('services/ErrorHandler.php');
 
