@@ -20,6 +20,7 @@ var jsFiles = [
             'app/js/layout.js',
             'app/js/tripwire.js',
             'app/js/global-hooks.js',
+            'app/js/websockets/WebSocketClient.js',
             'app/js/tripwire/*.js',
             'app/js/*.js',
             'app/js/**/*.js'

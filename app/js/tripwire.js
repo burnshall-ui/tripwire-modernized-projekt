@@ -6,21 +6,138 @@ var tripwire = new function() {
 	this.signatures = {list: {}, undo: JSON.parse(sessionStorage.getItem("tripwire_undo")) || {}, redo: JSON.parse(sessionStorage.getItem("tripwire_redo")) || {}};
 	this.activity = {};
 	this.data = {tracking: {}, esi: {}};
-	this.refreshRate = 5000;
+	this.refreshRate = 5000; // Fallback polling rate
 	this.connected = true;
 	this.ageFormat = "HM";
 	this.instance = window.name ? window.name : (new Date().getTime() / 1000, window.name = new Date().getTime() / 1000);
+
+	// WebSocket client
+	this.wsClient = null;
+	this.useWebSocket = true; // Try WebSocket first, fallback to polling
 
     // Command to start/stop tripwire updates
 	// ToDo: Include API and Server timers
 	this.stop = function() {
 		clearTimeout(this.timer);
+
+		// Stop WebSocket connection
+		if (this.wsClient) {
+			this.wsClient.disconnect();
+		}
+
 		return this.timer;
 	};
 
 	this.start = function() {
-		return this.sync();
-	}
+		// Try WebSocket first
+		if (this.useWebSocket && this.initWebSocket()) {
+			console.log('Using WebSocket for real-time updates');
+			return true;
+		} else {
+			// Fallback to polling
+			console.log('Falling back to polling for updates');
+			return this.sync();
+		}
+	};
+
+	// Initialize WebSocket connection
+	this.initWebSocket = function() {
+		try {
+			// Import WebSocket client (will be loaded by build system)
+			if (typeof TripwireWebSocket === 'undefined') {
+				console.warn('WebSocket client not available, falling back to polling');
+				return false;
+			}
+
+			this.wsClient = new TripwireWebSocket();
+
+			// Set up event handlers
+			this.wsClient.onConnect = () => {
+				console.log('WebSocket connected');
+				this.connected = true;
+			};
+
+			this.wsClient.onDisconnect = () => {
+				console.log('WebSocket disconnected');
+				this.connected = false;
+				// Fallback to polling if WebSocket fails
+				setTimeout(() => this.sync(), 1000);
+			};
+
+			this.wsClient.onMessage = (data) => {
+				this.handleWebSocketMessage(data);
+			};
+
+			this.wsClient.onError = (error) => {
+				console.error('WebSocket error:', error);
+			};
+
+			// Get current system and mask info
+			const systemId = window.systemID || init.systemID;
+			const maskId = init.mask || null;
+
+			if (systemId && maskId) {
+				this.wsClient.connect(maskId, parseInt(systemId));
+				return true;
+			} else {
+				console.warn('Missing systemId or maskId for WebSocket connection');
+				return false;
+			}
+
+		} catch (error) {
+			console.error('Failed to initialize WebSocket:', error);
+			return false;
+		}
+	};
+
+	// Handle WebSocket messages
+	this.handleWebSocketMessage = function(data) {
+		switch (data.action) {
+			case 'update':
+				this.handleRealTimeUpdate(data);
+				break;
+			case 'initial_data':
+				this.handleInitialData(data);
+				break;
+			default:
+				console.log('Unhandled WebSocket message:', data.action);
+		}
+	};
+
+	// Handle real-time updates from WebSocket
+	this.handleRealTimeUpdate = function(data) {
+		console.log('Real-time update received:', data);
+
+		// Update local data
+		if (data.type === 'signature' && data.data) {
+			this.client.signatures[data.data.id] = data.data;
+		} else if (data.type === 'wormhole' && data.data) {
+			this.client.wormholes[data.data.id] = data.data;
+		}
+
+		// Trigger UI updates
+		this.refresh();
+	};
+
+	// Handle initial data from WebSocket
+	this.handleInitialData = function(data) {
+		console.log('Initial data received via WebSocket');
+
+		if (data.signatures) {
+			data.signatures.forEach(sig => {
+				this.client.signatures[sig.id] = sig;
+			});
+		}
+
+		if (data.wormholes) {
+			data.wormholes.forEach(wh => {
+				this.client.wormholes[wh.id] = wh;
+			});
+		}
+
+		// Initial UI update
+		this.refresh();
+	};
 
     // Command to change Age format
 	// ToDo: Cookie change to keep

@@ -83,6 +83,10 @@ class SignaturesApi extends ApiController {
 
         try {
             $signature = $this->signatureService->create($data);
+
+            // Broadcast update via WebSocket
+            $this->signatureService->broadcastUpdate($maskId, $data['systemID'], $signature->toArray());
+
             $this->jsonResponse($signature->toArray(), 201);
         } catch (Exception $e) {
             $this->errorResponse('Failed to create signature: ' . $e->getMessage(), 500);
@@ -107,6 +111,20 @@ class SignaturesApi extends ApiController {
         try {
             $success = $this->signatureService->update($id, $data);
             if ($success) {
+                // Get updated signature for broadcasting
+                $signatures = $this->signatureService->getBySystem($data['systemID'], $maskId);
+                $updatedSignature = null;
+                foreach ($signatures as $sig) {
+                    if ($sig->id == $id) {
+                        $updatedSignature = $sig;
+                        break;
+                    }
+                }
+
+                if ($updatedSignature) {
+                    $this->signatureService->broadcastUpdate($maskId, $data['systemID'], $updatedSignature->toArray());
+                }
+
                 $this->jsonResponse(['success' => true]);
             } else {
                 $this->errorResponse('Signature not found or access denied', 404);
@@ -121,8 +139,25 @@ class SignaturesApi extends ApiController {
         if (!$id) return;
 
         try {
+            // Get signature info before deletion for broadcasting
+            $signatures = $this->signatureService->getByMask($maskId);
+            $deletedSignature = null;
+            foreach ($signatures as $sig) {
+                if ($sig->id == $id) {
+                    $deletedSignature = $sig;
+                    break;
+                }
+            }
+
             $success = $this->signatureService->delete($id, $maskId);
             if ($success) {
+                // Broadcast deletion
+                if ($deletedSignature) {
+                    $deletedData = $deletedSignature->toArray();
+                    $deletedData['deleted'] = true;
+                    $this->signatureService->broadcastUpdate($maskId, $deletedSignature->systemID, $deletedData);
+                }
+
                 $this->jsonResponse(['success' => true]);
             } else {
                 $this->errorResponse('Signature not found or access denied', 404);

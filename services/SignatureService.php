@@ -94,6 +94,14 @@ class SignatureService {
         return $stmt->rowCount() > 0;
     }
 
+    public function broadcastUpdate(string $maskId, int $systemId, array $signature): void {
+        // Broadcast to WebSocket clients
+        if (class_exists('TripwireWebSocket')) {
+            $wsServer = TripwireWebSocket::getInstance();
+            $wsServer->broadcastUpdate($maskId, $systemId, 'signature', $signature);
+        }
+    }
+
     public function getExpiredSignatures(string $maskId): array {
         $now = new DateTime();
         $query = 'SELECT * FROM signatures WHERE lifeLeft <= :now AND maskID = :maskID';

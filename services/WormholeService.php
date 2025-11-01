@@ -120,4 +120,12 @@ class WormholeService {
             'X702' => ['name' => 'X702 (NS->C4)', 'maxMass' => 3000000000, 'lifetime' => 1440],
         ];
     }
+
+    public function broadcastUpdate(string $maskId, int $systemId, array $wormhole): void {
+        // Broadcast to WebSocket clients
+        if (class_exists('TripwireWebSocket')) {
+            $wsServer = TripwireWebSocket::getInstance();
+            $wsServer->broadcastUpdate($maskId, $systemId, 'wormhole', $wormhole);
+        }
+    }
 }

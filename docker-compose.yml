@@ -101,6 +101,38 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # ================================
+  # WebSocket Server for Real-time Updates
+  # ================================
+  websocket:
+    build:
+      context: .
+      dockerfile: .docker/websocket/Dockerfile
+    container_name: tripwire-websocket
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./websockets:/opt/websocket:ro
+      - ./config.php:/opt/websocket/config.php:ro
+      - ./db.inc.php:/opt/websocket/db.inc.php:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - tripwire
+    restart: unless-stopped
+    environment:
+      - WS_PORT=8080
+      - WS_HOST=0.0.0.0
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
 # ================================
 # Networks
 # ================================
