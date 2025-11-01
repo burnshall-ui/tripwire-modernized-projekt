@@ -1,22 +1,96 @@
-FROM centos:7
-RUN yum update -y && \
-    yum install -y epel-release
+# ================================
+# PHP-FPM Multi-stage Build
+# ================================
 
-RUN yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm && \
-    yum install -y yum-utils && \
-    yum-config-manager --enable remi-php82 && \
-    yum -y update
+# Base stage for dependencies
+FROM alpine:3.19 AS base
 
-RUN yum install -y php-fpm php-xml php-cli php-bcmath php-dba php-gd php-intl php-mbstring php-mysql php-pdo php-soap php-pecl-apcu php-pecl-imagick
+# Install build dependencies
+RUN apk add --no-cache \
+    autoconf \
+    g++ \
+    make \
+    pkgconfig \
+    && rm -rf /var/cache/apk/*
 
-RUN useradd -M -d /opt/app -s /bin/false nginx
+# ================================
+# PHP-FPM Production Image
+# ================================
 
-RUN chown -R nginx:nginx /var/lib/php
+FROM php:8.2-fpm-alpine3.19
 
-COPY ./.docker/php-fpm/php-fpm.conf /etc/php-fpm.conf
-COPY ./.docker/php-fpm/www.conf /etc/php-fpm.d/www.conf
-COPY ./.docker/php-fpm/php.ini /etc/php.ini
+# Add metadata
+LABEL maintainer="Tripwire Team" \
+      version="1.0" \
+      description="Tripwire PHP-FPM Container"
 
-RUN yum clean all
+# Install system dependencies
+RUN apk add --no-cache \
+    # Core dependencies
+    nginx \
+    supervisor \
+    # PHP extensions dependencies
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libxml2-dev \
+    libzip-dev \
+    oniguruma-dev \
+    icu-dev \
+    # Database
+    mysql-client \
+    # Utils
+    curl \
+    git \
+    && rm -rf /var/cache/apk/*
 
-CMD php-fpm
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mysqli \
+        bcmath \
+        dba \
+        gd \
+        intl \
+        mbstring \
+        soap \
+        xml \
+        zip \
+        opcache
+
+# Install PECL extensions
+RUN pecl install apcu imagick redis \
+    && docker-php-ext-enable apcu imagick redis
+
+# Create non-root user
+RUN addgroup -g 1000 -S appuser \
+    && adduser -u 1000 -S appuser -G appuser -h /opt/app
+
+# Create necessary directories
+RUN mkdir -p /var/log/php-fpm /var/run/php-fpm /opt/app \
+    && chown -R appuser:appuser /var/log/php-fpm /var/run/php-fpm /opt/app
+
+# Copy PHP configuration
+COPY ./.docker/php-fpm/php.ini /usr/local/etc/php/php.ini
+COPY ./.docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY ./.docker/php-fpm/php-fpm.conf /usr/local/etc/php-fpm.conf
+
+# Copy supervisor configuration
+COPY ./.docker/supervisor/supervisord.conf /etc/supervisord.conf
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD php-fpm -t || exit 1
+
+# Switch to non-root user
+USER appuser
+
+# Set working directory
+WORKDIR /opt/app
+
+# Expose port
+EXPOSE 9000
+
+# Start supervisor (manages php-fpm)
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

@@ -1,0 +1,97 @@
+version: '3.8'
+
+# ================================
+# Development Environment
+# ================================
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: .docker/nginx/Dockerfile
+    container_name: tripwire-nginx-dev
+    ports:
+      - "8080:80"  # Different port for dev
+    volumes:
+      - ./:/opt/app:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - php-fpm
+    networks:
+      - tripwire-dev
+    restart: unless-stopped
+    environment:
+      - NGINX_ENV=development
+
+  php-fpm:
+    build:
+      context: .
+      dockerfile: .docker/php-fpm/Dockerfile
+    container_name: tripwire-php-dev
+    volumes:
+      - ./:/opt/app:rw  # Read-write for development
+      - php_sessions:/tmp
+    environment:
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=60
+      - PHP_DISPLAY_ERRORS=1
+      - PHP_DISPLAY_STARTUP_ERRORS=1
+      - PHP_ERROR_REPORTING=E_ALL
+      - PHP_OPCACHE_ENABLE=0  # Disable OPcache in dev
+      - XDEBUG_MODE=develop,debug
+      - XDEBUG_CONFIG=client_host=host.docker.internal
+    depends_on:
+      - mysql
+    networks:
+      - tripwire-dev
+    restart: unless-stopped
+    # Override for development - allow file modifications
+    security_opt:
+      - no-new-privileges:true
+    # No read_only for development
+
+  mysql:
+    build:
+      context: .
+      dockerfile: .docker/mysql/Dockerfile
+    container_name: tripwire-mysql-dev
+    ports:
+      - "3307:3306"  # Different port for dev
+    environment:
+      MYSQL_ROOT_PASSWORD: devrootpass
+      MYSQL_DATABASE: tripwire_dev
+      MYSQL_USER: tripwire_dev
+      MYSQL_PASSWORD: devpass
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+      - ./tools:/docker-entrypoint-initdb.d:ro
+    networks:
+      - tripwire-dev
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --sql_mode=""
+
+  # ================================
+  # Development Tools
+  # ================================
+  adminer:
+    image: adminer:latest
+    container_name: tripwire-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mysql
+    networks:
+      - tripwire-dev
+    restart: unless-stopped
+
+networks:
+  tripwire-dev:
+    driver: bridge
+
+volumes:
+  mysql_data_dev:
+    driver: local
+  nginx_logs:
+    driver: local
+  php_sessions:
+    driver: local

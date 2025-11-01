@@ -1,14 +1,15 @@
 version: '3.8'
 
+# ================================
+# Production Environment
+# ================================
+
 services:
-  # ================================
-  # NGINX Web Server
-  # ================================
   nginx:
     build:
       context: .
       dockerfile: .docker/nginx/Dockerfile
-    container_name: tripwire-nginx
+    container_name: tripwire-nginx-prod
     ports:
       - "80:80"
       - "443:443"
@@ -16,26 +17,26 @@ services:
       - ./:/opt/app:ro
       - nginx_logs:/var/log/nginx
       - nginx_cache:/var/cache/nginx
+      - ./ssl:/etc/nginx/ssl:ro  # SSL certificates
     depends_on:
       php-fpm:
         condition: service_healthy
     networks:
-      - tripwire
+      - tripwire-prod
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
+    environment:
+      - NGINX_ENV=production
 
-  # ================================
-  # PHP-FPM Application Server
-  # ================================
   php-fpm:
     build:
       context: .
       dockerfile: .docker/php-fpm/Dockerfile
-    container_name: tripwire-php
+    container_name: tripwire-php-prod
     volumes:
       - ./:/opt/app:ro
       - php_sessions:/tmp
@@ -48,11 +49,14 @@ services:
       - PHP_OPCACHE_ENABLE=1
       - PHP_OPCACHE_MEMORY_CONSUMPTION=128
       - PHP_OPCACHE_MAX_ACCELERATED_FILES=10000
+      - PHP_DISPLAY_ERRORS=0
+      - PHP_DISPLAY_STARTUP_ERRORS=0
+      - PHP_ERROR_REPORTING=E_ERROR
     depends_on:
       mysql:
         condition: service_healthy
     networks:
-      - tripwire
+      - tripwire-prod
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "php-fpm", "-t"]
@@ -66,14 +70,11 @@ services:
     tmpfs:
       - /tmp
 
-  # ================================
-  # MySQL Database
-  # ================================
   mysql:
     build:
       context: .
       dockerfile: .docker/mysql/Dockerfile
-    container_name: tripwire-mysql
+    container_name: tripwire-mysql-prod
     ports:
       - "3306:3306"
     environment:
@@ -89,7 +90,7 @@ services:
       - mysql_root_password
       - mysql_password
     networks:
-      - tripwire
+      - tripwire-prod
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$(cat /run/secrets/mysql_root_password)"]
@@ -97,21 +98,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --innodb_buffer_pool_size=1G --innodb_log_file_size=256M
     security_opt:
       - no-new-privileges:true
 
-# ================================
-# Networks
-# ================================
+  # ================================
+  # Monitoring (Production only)
+  # ================================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: tripwire-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE_STOPPED=true
+    networks:
+      - tripwire-prod
+    restart: unless-stopped
+
 networks:
-  tripwire:
+  tripwire-prod:
     driver: bridge
     internal: false
 
-# ================================
-# Volumes
-# ================================
 volumes:
   mysql_data:
     driver: local
@@ -126,9 +137,6 @@ volumes:
   php_logs:
     driver: local
 
-# ================================
-# Secrets
-# ================================
 secrets:
   mysql_root_password:
     file: .secrets/mysql_root_password.txt
