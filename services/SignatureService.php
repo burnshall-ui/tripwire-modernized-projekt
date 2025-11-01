@@ -1,0 +1,112 @@
+<?php
+
+class SignatureService {
+    private PDO $db;
+
+    public function __construct(PDO $db) {
+        $this->db = $db;
+    }
+
+    public function getBySystem(int $systemId, string $maskId): array {
+        $query = 'SELECT * FROM signatures WHERE (systemID = :systemID OR type = "wormhole") AND maskID = :maskID';
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':systemID', $systemId, PDO::PARAM_INT);
+        $stmt->bindValue(':maskID', $maskId);
+        $stmt->execute();
+
+        $signatures = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $signatures[] = new Signature($row);
+        }
+
+        return $signatures;
+    }
+
+    public function getByMask(string $maskId): array {
+        $query = 'SELECT * FROM signatures WHERE maskID = :maskID';
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':maskID', $maskId);
+        $stmt->execute();
+
+        $signatures = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $signatures[] = new Signature($row);
+        }
+
+        return $signatures;
+    }
+
+    public function create(array $data): Signature {
+        $query = 'INSERT INTO signatures (systemID, signatureID, type, name, description, createdBy, createdByName, lifeTime, lifeLeft, modifiedTime, maskID)
+                  VALUES (:systemID, :signatureID, :type, :name, :description, :createdBy, :createdByName, :lifeTime, :lifeLeft, :modifiedTime, :maskID)';
+
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':systemID', $data['systemID'], PDO::PARAM_INT);
+        $stmt->bindValue(':signatureID', $data['signatureID']);
+        $stmt->bindValue(':type', $data['type']);
+        $stmt->bindValue(':name', $data['name']);
+        $stmt->bindValue(':description', $data['description'] ?? null);
+        $stmt->bindValue(':createdBy', $data['createdBy'] ?? null, PDO::PARAM_INT);
+        $stmt->bindValue(':createdByName', $data['createdByName'] ?? null);
+        $stmt->bindValue(':lifeTime', $data['lifeTime']);
+        $stmt->bindValue(':lifeLeft', $data['lifeLeft']);
+        $stmt->bindValue(':modifiedTime', $data['modifiedTime']);
+        $stmt->bindValue(':maskID', $data['maskID']);
+        $stmt->execute();
+
+        $data['id'] = $this->db->lastInsertId();
+        return new Signature($data);
+    }
+
+    public function update(int $id, array $data): bool {
+        $query = 'UPDATE signatures SET
+                  signatureID = :signatureID,
+                  type = :type,
+                  name = :name,
+                  description = :description,
+                  lifeTime = :lifeTime,
+                  lifeLeft = :lifeLeft,
+                  modifiedTime = :modifiedTime
+                  WHERE id = :id AND maskID = :maskID';
+
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':signatureID', $data['signatureID']);
+        $stmt->bindValue(':type', $data['type']);
+        $stmt->bindValue(':name', $data['name']);
+        $stmt->bindValue(':description', $data['description'] ?? null);
+        $stmt->bindValue(':lifeTime', $data['lifeTime']);
+        $stmt->bindValue(':lifeLeft', $data['lifeLeft']);
+        $stmt->bindValue(':modifiedTime', $data['modifiedTime']);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':maskID', $data['maskID']);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function delete(int $id, string $maskId): bool {
+        $query = 'DELETE FROM signatures WHERE id = :id AND maskID = :maskID';
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':maskID', $maskId);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function getExpiredSignatures(string $maskId): array {
+        $now = new DateTime();
+        $query = 'SELECT * FROM signatures WHERE lifeLeft <= :now AND maskID = :maskID';
+        $stmt = $this->db->prepare($query);
+        $stmt->bindValue(':now', $now->format('Y-m-d H:i:s'));
+        $stmt->bindValue(':maskID', $maskId);
+        $stmt->execute();
+
+        $signatures = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $signatures[] = new Signature($row);
+        }
+
+        return $signatures;
+    }
+}
