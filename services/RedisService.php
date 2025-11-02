@@ -60,7 +60,17 @@ class RedisService {
     }
 
     public function isConnected(): bool {
-        return $this->connected && $this->redis && $this->redis->ping() === '+PONG';
+        if (!$this->connected || !$this->redis) {
+            return false;
+        }
+        
+        try {
+            return $this->redis->ping() === '+PONG';
+        } catch (Exception $e) {
+            error_log("Redis ping failed: " . $e->getMessage());
+            $this->connected = false;
+            return false;
+        }
     }
 
     // ================================
@@ -187,7 +197,18 @@ class RedisService {
 
         try {
             $tagKey = "tag:{$tag}";
-            return $this->redis->sadd($tagKey, $keys) !== false;
+            // Redis::sadd() requires individual scalar values, not an array
+            // Use Redis::sAddArray() or iterate and add each key individually
+            if (method_exists($this->redis, 'sAddArray')) {
+                // Redis extension >= 5.3.0
+                return $this->redis->sAddArray($tagKey, $keys) !== false;
+            } else {
+                // Fallback: add keys individually
+                foreach ($keys as $key) {
+                    $this->redis->sadd($tagKey, $key);
+                }
+                return true;
+            }
         } catch (Exception $e) {
             error_log("Redis tag SET error: " . $e->getMessage());
             return false;

@@ -52,10 +52,24 @@ class DatabaseConnection {
 
             // Performance optimizations
             $this->pdo->exec("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'");
-            $this->pdo->exec("SET SESSION innodb_buffer_pool_size = 134217728"); // 128MB
-            $this->pdo->exec("SET SESSION innodb_log_file_size = 33554432"); // 32MB
-            $this->pdo->exec("SET SESSION query_cache_type = 1");
-            $this->pdo->exec("SET SESSION query_cache_size = 67108864"); // 64MB
+            
+            // Detect MySQL version for compatibility
+            $version = $this->pdo->query('SELECT VERSION()')->fetchColumn();
+            $majorVersion = (int) explode('.', $version)[0];
+            
+            // Only set query cache settings for MySQL < 8.0 (removed in MySQL 8.0)
+            if ($majorVersion < 8) {
+                try {
+                    $this->pdo->exec("SET SESSION query_cache_type = 1");
+                    $this->pdo->exec("SET SESSION query_cache_size = 67108864"); // 64MB
+                } catch (PDOException $e) {
+                    // Query cache not available, ignore
+                    error_log("Query cache settings not available: " . $e->getMessage());
+                }
+            }
+            
+            // Note: innodb_buffer_pool_size and innodb_log_file_size are global variables
+            // They cannot be set at session level and should be configured in my.cnf
 
         } catch (PDOException $e) {
             throw new RuntimeException("Database connection failed: " . $e->getMessage());
