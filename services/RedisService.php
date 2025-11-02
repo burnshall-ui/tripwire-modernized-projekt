@@ -197,18 +197,15 @@ class RedisService {
 
         try {
             $tagKey = "tag:{$tag}";
-            // Redis::sadd() requires individual scalar values, not an array
-            // Use Redis::sAddArray() or iterate and add each key individually
-            if (method_exists($this->redis, 'sAddArray')) {
-                // Redis extension >= 5.3.0
-                return $this->redis->sAddArray($tagKey, $keys) !== false;
-            } else {
-                // Fallback: add keys individually
-                foreach ($keys as $key) {
-                    $this->redis->sadd($tagKey, $key);
-                }
-                return true;
+            
+            // Redis::sadd() expects individual scalar values
+            // Use spread operator to pass array elements as separate arguments
+            if (!empty($keys)) {
+                // Redis::sadd($key, $member1, $member2, ...)
+                return $this->redis->sadd($tagKey, ...$keys) !== false;
             }
+            
+            return true;
         } catch (Exception $e) {
             error_log("Redis tag SET error: " . $e->getMessage());
             return false;
@@ -314,6 +311,17 @@ class RedisService {
         } catch (Exception $e) {
             return ['connected' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Get raw Redis instance for advanced operations
+     * Use with caution - prefer using the wrapper methods
+     */
+    public function getRedis(): ?Redis {
+        if (!$this->ensureConnection()) {
+            return null;
+        }
+        return $this->redis;
     }
 
     private function ensureConnection(): bool {

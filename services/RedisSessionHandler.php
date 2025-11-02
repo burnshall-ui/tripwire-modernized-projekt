@@ -48,14 +48,16 @@ class RedisSessionHandler implements SessionHandlerInterface {
             if ($redis->isConnected()) {
                 $handler = new self($redis);
 
-                // Set Redis as session handler
+                // Register custom session handler
                 session_set_save_handler($handler, true);
 
-                // Configure session settings for Redis
-                ini_set('session.save_handler', 'redis');
-                ini_set('session.gc_maxlifetime', 86400); // 24 hours
-                ini_set('session.cookie_lifetime', 86400);
-                ini_set('session.use_strict_mode', 1);
+                // Configure session settings
+                // Note: Do NOT set session.save_handler to 'redis' here
+                // That would override our custom handler with PHP's native Redis session handler
+                // Leave it as 'user' (default for custom handlers)
+                ini_set('session.gc_maxlifetime', '86400'); // 24 hours
+                ini_set('session.cookie_lifetime', '86400');
+                ini_set('session.use_strict_mode', '1');
 
                 return true;
             }
