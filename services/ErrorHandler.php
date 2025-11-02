@@ -1,5 +1,11 @@
 <?php
 
+namespace Tripwire\Services;
+
+use Exception;
+use Throwable;
+use ErrorException;
+
 class AppException extends Exception {
     protected $httpCode;
 

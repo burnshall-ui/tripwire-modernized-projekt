@@ -1,5 +1,10 @@
 <?php
 
+namespace Tripwire\Services;
+
+use PDO;
+use Exception;
+
 class WormholeService {
     private PDO $db;
 

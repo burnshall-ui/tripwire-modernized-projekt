@@ -1,5 +1,10 @@
 <?php
 
+namespace Tripwire\Controllers;
+
+use PDO;
+use Exception;
+
 class SystemController {
     private PDO $db;
 

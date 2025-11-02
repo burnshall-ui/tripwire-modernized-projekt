@@ -1,5 +1,9 @@
 <?php
 
+namespace Tripwire\Views;
+
+use Tripwire\Services\Container;
+
 class SystemView {
     private array $data;
     private ?Container $container = null;

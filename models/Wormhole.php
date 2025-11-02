@@ -1,5 +1,9 @@
 <?php
 
+namespace Tripwire\Models;
+
+use DateTime;
+
 class Wormhole {
     public int $id;
     public int $fromSystemID;

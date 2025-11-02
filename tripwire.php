@@ -1,7 +1,32 @@
 <?php
 
+$startTime = microtime(true);
+
+// Load Composer autoloader (handles all PSR-4 autoloading)
+if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+    die('ERROR: Composer autoloader not found. Run: composer install');
+}
+require_once(__DIR__ . '/vendor/autoload.php');
+
+// Load environment variables from .env file
+if (file_exists(__DIR__ . '/.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+}
+
+// Load legacy config files
+require_once('config.php');
+require_once('settings.php');
+require_once('db.inc.php');
+require('lib.inc.php');
+
+// Import namespaced classes
+use Tripwire\Services\RedisSessionHandler;
+use Tripwire\Services\ErrorHandler;
+use function Tripwire\Services\createContainer;
+use function Tripwire\Services\initErrorHandling;
+
 // Initialize Redis-based session handling
-require_once('services/RedisSessionHandler.php');
 $redisSessionInitialized = RedisSessionHandler::init();
 
 // Fallback to secure file-based sessions if Redis is not available
@@ -21,35 +46,6 @@ if (!$redisSessionInitialized) {
         session_start();
     }
 }
-
-$startTime = microtime(true);
-
-// Load Composer autoloader if available (for Ratchet, Monolog, etc.)
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require_once(__DIR__ . '/vendor/autoload.php');
-}
-
-require_once('config.php');
-require_once('settings.php');
-require_once('db.inc.php');
-require('lib.inc.php');
-
-// Load Models
-require_once('models/Signature.php');
-require_once('models/Wormhole.php');
-
-// Load Services
-require_once('services/RedisService.php');
-require_once('services/DatabaseConnection.php');
-require_once('services/ErrorHandler.php');
-require_once('services/Container.php');
-require_once('services/UserService.php');
-require_once('services/SignatureService.php');
-require_once('services/WormholeService.php');
-
-// Load Controllers & Views
-require_once('controllers/SystemController.php');
-require_once('views/SystemView.php');
 
 // Initialize error handling
 $errorHandler = initErrorHandling();

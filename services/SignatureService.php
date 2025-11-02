@@ -1,5 +1,10 @@
 <?php
 
+namespace Tripwire\Services;
+
+use PDO;
+use Exception;
+
 class SignatureService {
     private PDO $db;
     private ?RedisService $redis;

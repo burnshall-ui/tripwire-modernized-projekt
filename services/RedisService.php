@@ -1,5 +1,10 @@
 <?php
 
+namespace Tripwire\Services;
+
+use Redis;
+use Exception;
+
 class RedisService {
     private ?Redis $redis = null;
     private bool $connected = false;

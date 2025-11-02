@@ -1,5 +1,10 @@
 <?php
 
+namespace Tripwire\Services;
+
+use SessionHandlerInterface;
+use Exception;
+
 class RedisSessionHandler implements SessionHandlerInterface {
     private RedisService $redis;
     private int $ttl;

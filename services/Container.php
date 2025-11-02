@@ -1,5 +1,9 @@
 <?php
 
+namespace Tripwire\Services;
+
+use InvalidArgumentException;
+
 class Container {
     private array $services = [];
     private array $factories = [];
@@ -99,7 +103,11 @@ class Container {
     }
 }
 
-// Initialize the container with core services
+/**
+ * Initialize the container with core services
+ *
+ * @return Container
+ */
 function createContainer(): Container {
     global $mysql;
 
@@ -134,12 +142,12 @@ function createContainer(): Container {
 
     // Controllers (singletons)
     $container->singleton('systemController', function($c) {
-        return new SystemController($c->get('db'));
+        return new \Tripwire\Controllers\SystemController($c->get('db'));
     });
 
     // Views (factory - new instance each time)
     $container->set('systemView', function($c) {
-        $view = new SystemView();
+        $view = new \Tripwire\Views\SystemView();
         $view->setContainer($c);
         return $view;
     });

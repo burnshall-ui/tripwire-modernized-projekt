@@ -1,5 +1,11 @@
 <?php
 
+namespace Tripwire\Services;
+
+use PDO;
+use PDOException;
+use Exception;
+
 class DatabaseConnection {
     private static ?DatabaseConnection $instance = null;
     private PDO $pdo;
