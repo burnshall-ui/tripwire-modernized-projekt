@@ -1,5 +1,76 @@
+# Tripwire .gitignore
+
+# Configuration files (contain sensitive data)
 config.php
 db.inc.php
-.idea
-node_modules
-tweetie/config.php
+settings.php
+
+# Composer dependencies
+/vendor/
+composer.lock
+
+# Node modules
+/node_modules/
+package-lock.json
+
+# Logs
+/logs/
+*.log
+error.log
+websocket.log
+websocket-error.log
+
+# Cache & Session files
+/cache/
+/sessions/
+*.cache
+
+# IDE files
+.vscode/
+.idea/
+.phpstorm.meta.php
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+/public/css/app.min.css.map
+/public/js/app.min.js.map
+/dist/
+/build/
+
+# Backup files
+*.backup
+*.bak
+*~
+*.swp
+*.swo
+tripwire.legacy.php
+
+# Temporary files
+/tmp/
+/temp/
+*.tmp
+
+# WebSocket PID files
+/var/run/*.pid
+*.pid
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Docker volumes
+/.docker/mysql/data/
+
+# PHPUnit
+.phpunit.result.cache
+/coverage/
+
+# Redis dump
+dump.rdb

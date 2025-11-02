@@ -2,48 +2,100 @@
 
 class Container {
     private array $services = [];
+    private array $factories = [];
     private array $parameters = [];
+    private array $singletons = [];
 
     public function __construct(array $parameters = []) {
         $this->parameters = $parameters;
     }
 
+    /**
+     * Register a service factory (creates new instance each time)
+     */
     public function set(string $id, callable $factory): void {
-        $this->services[$id] = $factory;
+        $this->factories[$id] = $factory;
+        // Remove from singletons if it was registered as one
+        unset($this->singletons[$id]);
+        unset($this->services[$id]);
     }
 
-    public function get(string $id) {
-        if (!isset($this->services[$id])) {
-            throw new InvalidArgumentException("Service '{$id}' not found in container");
-        }
+    /**
+     * Register a singleton service (same instance every time)
+     */
+    public function singleton(string $id, callable $factory): void {
+        $this->factories[$id] = $factory;
+        $this->singletons[$id] = true;
+    }
 
-        // If it's already instantiated, return it
-        if (!is_callable($this->services[$id])) {
+    /**
+     * Get a service from the container
+     */
+    public function get(string $id) {
+        // Return cached singleton instance
+        if (isset($this->services[$id])) {
             return $this->services[$id];
         }
 
-        // Instantiate the service
-        $service = $this->services[$id]($this);
+        // Check if factory exists
+        if (!isset($this->factories[$id])) {
+            throw new InvalidArgumentException("Service '{$id}' not found in container");
+        }
 
-        // Cache the instantiated service
-        $this->services[$id] = $service;
+        // Instantiate the service
+        $service = $this->factories[$id]($this);
+
+        // Cache if singleton
+        if (isset($this->singletons[$id])) {
+            $this->services[$id] = $service;
+        }
 
         return $service;
     }
 
+    /**
+     * Check if service exists
+     */
     public function has(string $id): bool {
-        return isset($this->services[$id]);
+        return isset($this->factories[$id]) || isset($this->services[$id]);
     }
 
+    /**
+     * Set a parameter
+     */
     public function setParameter(string $key, $value): void {
         $this->parameters[$key] = $value;
     }
 
+    /**
+     * Get a parameter
+     */
     public function getParameter(string $key) {
         if (!isset($this->parameters[$key])) {
             throw new InvalidArgumentException("Parameter '{$key}' not found in container");
         }
         return $this->parameters[$key];
+    }
+
+    /**
+     * Check if parameter exists
+     */
+    public function hasParameter(string $key): bool {
+        return isset($this->parameters[$key]);
+    }
+
+    /**
+     * Get all registered service IDs
+     */
+    public function getServiceIds(): array {
+        return array_keys($this->factories);
+    }
+
+    /**
+     * Clear all cached singletons (useful for testing)
+     */
+    public function clearCache(): void {
+        $this->services = [];
     }
 }
 
@@ -51,39 +103,45 @@ class Container {
 function createContainer(): Container {
     global $mysql;
 
-    $container = new Container();
+    $container = new Container([
+        'app_name' => defined('APP_NAME') ? APP_NAME : 'Tripwire',
+        'version' => defined('VERSION') ? VERSION : '1.0',
+        'debug' => defined('DEBUG') ? DEBUG : false
+    ]);
 
-    // Core database service
-    $container->set('db', function($c) use ($mysql) {
+    // Core database service (singleton)
+    $container->singleton('db', function($c) use ($mysql) {
         return $mysql;
     });
 
-    // Controllers
-    $container->set('systemController', function($c) {
-        return new SystemController($c->get('db'));
-    });
-
-    // Services
-    $container->set('userService', function($c) {
-        return new UserService($c->get('db'));
-    });
-
-    $container->set('signatureService', function($c) {
-        return new SignatureService($c->get('db'), $c->get('redis'));
-    });
-
-    $container->set('wormholeService', function($c) {
-        return new WormholeService($c->get('db'));
-    });
-
-    // Redis Cache Service
-    $container->set('redis', function($c) {
+    // Redis Cache Service (singleton)
+    $container->singleton('redis', function($c) {
         return new RedisService();
     });
 
-    // Views
+    // Services (singletons)
+    $container->singleton('userService', function($c) {
+        return new UserService($c->get('db'));
+    });
+
+    $container->singleton('signatureService', function($c) {
+        return new SignatureService($c->get('db'), $c->get('redis'));
+    });
+
+    $container->singleton('wormholeService', function($c) {
+        return new WormholeService($c->get('db'));
+    });
+
+    // Controllers (singletons)
+    $container->singleton('systemController', function($c) {
+        return new SystemController($c->get('db'));
+    });
+
+    // Views (factory - new instance each time)
     $container->set('systemView', function($c) {
-        return new SystemView();
+        $view = new SystemView();
+        $view->setContainer($c);
+        return $view;
     });
 
     return $container;

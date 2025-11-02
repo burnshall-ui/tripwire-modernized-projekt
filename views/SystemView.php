@@ -2,9 +2,14 @@
 
 class SystemView {
     private array $data;
+    private ?Container $container = null;
 
     public function __construct(array $data = []) {
         $this->data = $data;
+    }
+
+    public function setContainer(Container $container): void {
+        $this->container = $container;
     }
 
     public function setData(string $key, $value): void {
@@ -133,8 +138,17 @@ class SystemView {
     }
 
     private function checkAdminPermissions(array $userData): bool {
-        $userService = new UserService($GLOBALS['mysql'] ?? null);
-        return isset($userData['mask']) && $userService->checkAdminPermission($userData['mask']);
+        if (!$this->container) {
+            return false;
+        }
+
+        try {
+            $userService = $this->container->get('userService');
+            return isset($userData['mask']) && $userService->checkAdminPermission($userData['mask']);
+        } catch (Exception $e) {
+            error_log("Error checking admin permissions: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function renderFooter(): void {

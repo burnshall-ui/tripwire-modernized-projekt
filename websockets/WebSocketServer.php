@@ -1,10 +1,26 @@
 <?php
 
-require_once('../vendor/autoload.php'); // Composer autoload
-require_once('../config.php');
-require_once('../db.inc.php');
-require_once('../services/SignatureService.php');
-require_once('../services/WormholeService.php');
+// Load Composer autoloader (required for Ratchet)
+if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    die("Composer dependencies not installed. Run: composer install\n");
+}
+require_once(__DIR__ . '/../vendor/autoload.php');
+
+// Load configuration
+require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../db.inc.php');
+
+// Load Models
+require_once(__DIR__ . '/../models/Signature.php');
+require_once(__DIR__ . '/../models/Wormhole.php');
+
+// Load Services
+require_once(__DIR__ . '/../services/RedisService.php');
+require_once(__DIR__ . '/../services/ErrorHandler.php');
+require_once(__DIR__ . '/../services/Container.php');
+require_once(__DIR__ . '/../services/UserService.php');
+require_once(__DIR__ . '/../services/SignatureService.php');
+require_once(__DIR__ . '/../services/WormholeService.php');
 
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
@@ -14,18 +30,19 @@ use Ratchet\WebSocket\WsServer;
 
 class TripwireWebSocket implements MessageComponentInterface {
     protected SplObjectStorage $clients;
-    protected PDO $db;
+    protected Container $container;
     protected SignatureService $signatureService;
     protected WormholeService $wormholeService;
     protected array $subscriptions = [];
 
-    public function __construct(PDO $db) {
+    public function __construct(Container $container) {
         $this->clients = new SplObjectStorage;
-        $this->db = $db;
-        $this->signatureService = new SignatureService($db);
-        $this->wormholeService = new WormholeService($db);
+        $this->container = $container;
+        $this->signatureService = $container->get('signatureService');
+        $this->wormholeService = $container->get('wormholeService');
 
-        echo "Tripwire WebSocket Server started\n";
+        echo "[" . date('Y-m-d H:i:s') . "] Tripwire WebSocket Server started\n";
+        echo "[" . date('Y-m-d H:i:s') . "] Listening on port 8080\n";
     }
 
     public function onOpen(ConnectionInterface $conn) {
@@ -34,8 +51,9 @@ class TripwireWebSocket implements MessageComponentInterface {
         $conn->userId = null;
         $conn->maskId = null;
         $conn->systemId = null;
+        $conn->authenticated = false;
 
-        echo "New connection! ({$conn->resourceId})\n";
+        $this->logInfo($conn, "New connection established");
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
@@ -43,11 +61,15 @@ class TripwireWebSocket implements MessageComponentInterface {
             $data = json_decode($msg, true);
 
             if (!$data || !isset($data['action'])) {
+                $this->logError($from, "Invalid message format");
                 $from->send(json_encode(['error' => 'Invalid message format']));
                 return;
             }
 
-            switch ($data['action']) {
+            $action = $data['action'];
+            $this->logDebug($from, "Received action: {$action}");
+
+            switch ($action) {
                 case 'subscribe':
                     $this->handleSubscribe($from, $data);
                     break;
@@ -57,16 +79,28 @@ class TripwireWebSocket implements MessageComponentInterface {
                     break;
 
                 case 'ping':
-                    $from->send(json_encode(['action' => 'pong', 'timestamp' => time()]));
+                    $from->send(json_encode([
+                        'action' => 'pong', 
+                        'timestamp' => time(),
+                        'server_time' => date('Y-m-d H:i:s')
+                    ]));
+                    break;
+
+                case 'authenticate':
+                    $this->handleAuthentication($from, $data);
                     break;
 
                 default:
+                    $this->logError($from, "Unknown action: {$action}");
                     $from->send(json_encode(['error' => 'Unknown action']));
             }
 
         } catch (Exception $e) {
-            echo "Message error: " . $e->getMessage() . "\n";
-            $from->send(json_encode(['error' => 'Server error']));
+            $this->logError($from, "Message error: " . $e->getMessage());
+            $from->send(json_encode([
+                'error' => 'Server error',
+                'message' => defined('DEBUG') && DEBUG ? $e->getMessage() : 'Internal error'
+            ]));
         }
     }
 
@@ -105,7 +139,7 @@ class TripwireWebSocket implements MessageComponentInterface {
             'systemId' => $systemId
         ]));
 
-        echo "Client {$conn->resourceId} subscribed to mask {$maskId}, system {$systemId}\n";
+        $this->logInfo($conn, "Subscribed to mask: {$maskId}, system: {$systemId}");
     }
 
     protected function handleUnsubscribe(ConnectionInterface $conn): void {
@@ -130,13 +164,18 @@ class TripwireWebSocket implements MessageComponentInterface {
             $signatures = $this->signatureService->getBySystem($systemId, $maskId);
             $wormholes = $this->wormholeService->getBySystem($systemId, $maskId);
 
+            $sigCount = count($signatures);
+            $whCount = count($wormholes);
+
             $conn->send(json_encode([
                 'action' => 'initial_data',
                 'signatures' => array_map(fn($sig) => $sig->toArray(), $signatures),
                 'wormholes' => array_map(fn($wh) => $wh->toArray(), $wormholes)
             ]));
+
+            $this->logDebug($conn, "Sent initial data: {$sigCount} signatures, {$whCount} wormholes");
         } catch (Exception $e) {
-            echo "Error sending initial data: " . $e->getMessage() . "\n";
+            $this->logError($conn, "Error sending initial data: " . $e->getMessage());
         }
     }
 
@@ -154,20 +193,80 @@ class TripwireWebSocket implements MessageComponentInterface {
             'timestamp' => time()
         ]);
 
+        $broadcastCount = 0;
         foreach ($this->subscriptions[$subscriptionKey] as $conn) {
             try {
                 $conn->send($message);
+                $broadcastCount++;
             } catch (Exception $e) {
-                echo "Broadcast error: " . $e->getMessage() . "\n";
+                $this->logError($conn, "Broadcast error: " . $e->getMessage());
                 $this->onClose($conn);
             }
         }
+
+        if ($broadcastCount > 0) {
+            $this->logDebug(null, "Broadcasted {$type} update to {$broadcastCount} client(s) on {$subscriptionKey}");
+        }
     }
 
-    protected function validateMaskAccess(string $maskId): bool {
-        // Simplified validation - should be replaced with proper auth
-        // In production, this should validate against session/user permissions
-        return !empty($maskId);
+    protected function validateMaskAccess(string $maskId, ?int $userId = null): bool {
+        // Basic validation
+        if (empty($maskId)) {
+            return false;
+        }
+
+        // If userId is provided, use UserService to validate
+        if ($userId !== null) {
+            try {
+                $userService = $this->container->get('userService');
+                // Prüfe ob User Zugriff auf Mask hat
+                // TODO: Implementiere richtige Permission-Checks
+                return true;
+            } catch (Exception $e) {
+                $this->logError(null, "Mask validation error: " . $e->getMessage());
+                return false;
+            }
+        }
+
+        // Fallback: Allow if mask is not empty (simplified)
+        return true;
+    }
+
+    protected function handleAuthentication(ConnectionInterface $conn, array $data): void {
+        if (!isset($data['userId']) || !isset($data['token'])) {
+            $conn->send(json_encode(['error' => 'userId and token required']));
+            return;
+        }
+
+        // TODO: Implement proper token validation
+        // For now, just store the userId
+        $conn->userId = $data['userId'];
+        $conn->authenticated = true;
+
+        $this->logInfo($conn, "User authenticated: {$data['userId']}");
+
+        $conn->send(json_encode([
+            'action' => 'authenticated',
+            'userId' => $data['userId']
+        ]));
+    }
+
+    protected function logDebug(?ConnectionInterface $conn, string $message): void {
+        $connId = $conn ? $conn->resourceId : 'N/A';
+        echo "[DEBUG] [{$connId}] {$message}\n";
+    }
+
+    protected function logInfo(?ConnectionInterface $conn, string $message): void {
+        $connId = $conn ? $conn->resourceId : 'N/A';
+        $timestamp = date('Y-m-d H:i:s');
+        echo "[{$timestamp}] [INFO] [{$connId}] {$message}\n";
+    }
+
+    protected function logError(?ConnectionInterface $conn, string $message): void {
+        $connId = $conn ? $conn->resourceId : 'N/A';
+        $timestamp = date('Y-m-d H:i:s');
+        echo "[{$timestamp}] [ERROR] [{$connId}] {$message}\n";
+        error_log("[WebSocket] [ERROR] [{$connId}] {$message}");
     }
 
     public function onClose(ConnectionInterface $conn) {
@@ -177,11 +276,11 @@ class TripwireWebSocket implements MessageComponentInterface {
         // Remove connection
         $this->clients->detach($conn);
 
-        echo "Connection {$conn->resourceId} has disconnected\n";
+        $this->logInfo($conn, "Connection closed");
     }
 
     public function onError(ConnectionInterface $conn, Exception $e) {
-        echo "An error has occurred: {$e->getMessage()}\n";
+        $this->logError($conn, "Connection error: {$e->getMessage()}");
         $conn->close();
     }
 }
@@ -191,22 +290,64 @@ function startWebSocketServer(): void {
     global $mysql;
 
     if (!$mysql) {
-        die("Database connection failed\n");
+        die("[ERROR] Database connection failed\n");
     }
+
+    // Initialize error handling
+    $errorHandler = initErrorHandling();
+
+    // Create container with services
+    $container = createContainer();
+
+    echo "[" . date('Y-m-d H:i:s') . "] Initializing WebSocket server...\n";
+    echo "[" . date('Y-m-d H:i:s') . "] Services loaded: " . implode(', ', $container->getServiceIds()) . "\n";
+
+    // Check Redis connection
+    try {
+        $redis = $container->get('redis');
+        if ($redis->isConnected()) {
+            echo "[" . date('Y-m-d H:i:s') . "] Redis connection: OK\n";
+        } else {
+            echo "[" . date('Y-m-d H:i:s') . "] Redis connection: FAILED (running without cache)\n";
+        }
+    } catch (Exception $e) {
+        echo "[" . date('Y-m-d H:i:s') . "] Redis error: " . $e->getMessage() . "\n";
+    }
+
+    // Create WebSocket server
+    $tripwireWs = new TripwireWebSocket($container);
 
     $server = IoServer::factory(
         new HttpServer(
-            new WsServer(
-                new TripwireWebSocket($mysql)
-            )
+            new WsServer($tripwireWs)
         ),
         8080, // WebSocket port
         '0.0.0.0'
     );
 
-    echo "WebSocket server starting on port 8080...\n";
+    echo "[" . date('Y-m-d H:i:s') . "] WebSocket server ready. Waiting for connections...\n";
+    echo "========================================\n";
+
+    // Run the server (blocking)
     $server->run();
 }
 
+// Signal handling for graceful shutdown
+if (function_exists('pcntl_signal')) {
+    pcntl_signal(SIGTERM, function() {
+        echo "\n[" . date('Y-m-d H:i:s') . "] Received SIGTERM, shutting down...\n";
+        exit(0);
+    });
+
+    pcntl_signal(SIGINT, function() {
+        echo "\n[" . date('Y-m-d H:i:s') . "] Received SIGINT (Ctrl+C), shutting down...\n";
+        exit(0);
+    });
+}
+
 // Run the server
+echo "========================================\n";
+echo "  Tripwire WebSocket Server v2.0\n";
+echo "========================================\n";
+
 startWebSocketServer();
