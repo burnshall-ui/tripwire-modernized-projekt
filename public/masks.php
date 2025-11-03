@@ -22,16 +22,62 @@ if(!isset($_SESSION['userID'])) {
 require_once('../config.php');
 require_once('../db.inc.php');
 require_once('../lib.inc.php');
-
-$mode = isset($_REQUEST['mode'])?$_REQUEST['mode']:null;
-$mask = isset($_REQUEST['mask'])?$_REQUEST['mask']:null;
-$type = isset($_REQUEST['type'])?$_REQUEST['type']:null;
-$name = isset($_REQUEST['name'])?$_REQUEST['name']:null;
-$adds = isset($_REQUEST['adds'])?$_REQUEST['adds']:array();
-$deletes = isset($_REQUEST['deletes'])?$_REQUEST['deletes']:array();
-$output = null;
+require_once('../services/SecurityHelper.php');
 
 header('Content-Type: application/json');
+
+try {
+	// Validate mode parameter (enum)
+	$mode = SecurityHelper::validateEnum(
+		$_REQUEST['mode'] ?? null,
+		['create', 'save', 'edit', 'delete', 'find', 'join', 'leave'],
+		'mode',
+		false // Not required - default action if missing
+	);
+
+	// Validate mask parameter (string/numeric)
+	$mask = isset($_REQUEST['mask']) && !empty($_REQUEST['mask'])
+		? SecurityHelper::validateString($_REQUEST['mask'], 'mask', false, 20)
+		: null;
+
+	// Validate type parameter (enum)
+	$type = SecurityHelper::validateEnum(
+		$_REQUEST['type'] ?? null,
+		['corp', 'personal', 'corporate'],
+		'type',
+		false
+	);
+
+	// Validate name parameter (string)
+	$name = isset($_REQUEST['name']) && !empty($_REQUEST['name'])
+		? SecurityHelper::validateString($_REQUEST['name'], 'name', false, 100)
+		: null;
+
+	// Validate adds array (strings in format "id_type")
+	$adds = isset($_REQUEST['adds']) && is_array($_REQUEST['adds'])
+		? SecurityHelper::validateStringArray($_REQUEST['adds'], 'adds', false, 50)
+		: array();
+
+	// Validate deletes array (strings in format "id_type")
+	$deletes = isset($_REQUEST['deletes']) && is_array($_REQUEST['deletes'])
+		? SecurityHelper::validateStringArray($_REQUEST['deletes'], 'deletes', false, 50)
+		: array();
+
+	// Validate find parameter (enum - used in 'find' mode)
+	$find = SecurityHelper::validateEnum(
+		$_REQUEST['find'] ?? null,
+		['personal', 'corporate'],
+		'find',
+		false
+	);
+
+	$output = null;
+} catch (InvalidArgumentException $e) {
+	http_response_code(400);
+	$output['error'] = 'Validation error: ' . $e->getMessage();
+	echo json_encode($output);
+	exit();
+}
 
 if ($mode == 'create') {
 	if (!$name) {
@@ -120,7 +166,7 @@ if ($mode == 'create') {
 	$stmt->bindValue(':name', $name.'%');
 	$stmt->bindValue(':characterID', $_SESSION['characterID']);
 	$stmt->bindValue(':corporationID', $_SESSION['corporationID']);
-	$stmt->bindValue(':type', $_REQUEST['find']);
+	$stmt->bindValue(':type', $find); // Now using validated $find variable
 	$stmt->execute();
 
 	if ($stmt->rowCount()) {
