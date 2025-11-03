@@ -23,6 +23,7 @@ if(!isset($_SESSION['userID'])) {
 
 require_once('../config.php');
 require_once('../db.inc.php');
+require_once('../services/SecurityHelper.php');
 
 $cache = 360;
 
@@ -31,8 +32,14 @@ header('Expires: '.gmdate('r', time() + $cache));
 header('Pragma: cache');
 header('Content-Type: application/json');
 
-$length = isset($_REQUEST['time']) && !empty($_REQUEST['time']) ? intval($_REQUEST['time']) +1 : 25;
-$systemID = $_REQUEST['systemID'];
+try {
+	$length = isset($_REQUEST['time']) && !empty($_REQUEST['time']) ? intval($_REQUEST['time']) +1 : 25;
+	$systemID = SecurityHelper::getInt('systemID', INPUT_REQUEST, true);
+} catch (InvalidArgumentException $e) {
+	http_response_code(400);
+	echo json_encode(['error' => $e->getMessage()]);
+	exit();
+}
 
 //$annotations['2015-12-20 15:00:00'] = Array('label' => 'Downtime', 'text' => 'EVE Downtime');
 

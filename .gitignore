@@ -4,6 +4,7 @@
 config.php
 db.inc.php
 settings.php
+.secrets/
 
 # Composer dependencies
 /vendor/

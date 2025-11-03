@@ -9,11 +9,20 @@ if (!TRIPWIRE_API) {
 
 require_once('../db.inc.php');
 require_once('../api/auth.php');
+require_once('../services/SecurityHelper.php');
 
 header('Content-Type: application/json');
 $output = null;
 
-$path = explode('/', $_REQUEST['q']);
+try {
+    // Validate and sanitize the 'q' parameter
+    $q = SecurityHelper::validateString($_REQUEST['q'] ?? '', 'q', true, 500);
+    $path = explode('/', $q);
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
+    exit();
+}
 
 if (isset($path[1])) {
     if ($path[1] == 'signatures') {

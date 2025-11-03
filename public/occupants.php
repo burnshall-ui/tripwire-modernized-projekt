@@ -21,19 +21,25 @@ if(!isset($_SESSION['userID'])) {
 
 require_once('../config.php');
 require_once('../db.inc.php');
+require_once('../services/SecurityHelper.php');
 
 header('Content-Type: application/json');
 
-$systemID = $_REQUEST['systemID'];
-$maskID = $_SESSION['mask'];
+try {
+	$systemID = SecurityHelper::getInt('systemID', INPUT_REQUEST, true);
+	$maskID = $_SESSION['mask'];
 
-$query = 'SELECT characterName, shipTypeName FROM tracking WHERE systemID = :systemID AND maskID = :maskID';
-$stmt = $mysql->prepare($query);
-$stmt->bindValue(':systemID', $systemID);
-$stmt->bindValue(':maskID', $maskID);
-$stmt->execute();
+	$query = 'SELECT characterName, shipTypeName FROM tracking WHERE systemID = :systemID AND maskID = :maskID';
+	$stmt = $mysql->prepare($query);
+	$stmt->bindValue(':systemID', $systemID);
+	$stmt->bindValue(':maskID', $maskID);
+	$stmt->execute();
 
-$output['occupants'] = $stmt->fetchAll(PDO::FETCH_CLASS);
+	$output['occupants'] = $stmt->fetchAll(PDO::FETCH_CLASS);
+} catch (InvalidArgumentException $e) {
+	http_response_code(400);
+	$output['error'] = $e->getMessage();
+}
 
 $output['proccessTime'] = sprintf('%.4f', microtime(true) - $startTime);
 
