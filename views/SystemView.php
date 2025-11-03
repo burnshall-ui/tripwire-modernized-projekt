@@ -60,8 +60,8 @@ class SystemView {
             <div id="topbar">
                 <span class="align-left">
                     <h1 id="logo">
-                        <a href="."><?= APP_NAME ?></a>
-                        <span id="version"><?= VERSION ?></span>
+                        <a href="."><?= htmlspecialchars(APP_NAME) ?></a>
+                        <span id="version"><?= htmlspecialchars(VERSION) ?></span>
                         <span>|</span>
                         <!-- <span data-tooltip="System activity update countdown"><input id="APIclock" class="hidden" /></span> -->
                     </h1>

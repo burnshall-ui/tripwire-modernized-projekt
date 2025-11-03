@@ -6,7 +6,7 @@ require_once('config.php');
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title><?= APP_NAME ?></title>
+	<title><?= htmlspecialchars(APP_NAME) ?></title>
 
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
