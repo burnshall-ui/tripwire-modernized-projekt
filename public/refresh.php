@@ -17,6 +17,7 @@ if(!isset($_SESSION['userID'])) {
 require_once('../config.php');
 require_once('../settings.php');
 require_once('../db.inc.php');
+require_once('../services/SecurityHelper.php');
 
 header('Content-Type: application/json');
 /**
@@ -101,17 +102,11 @@ $stmt->rowCount() ? $output['activity'] = $stmt->fetchAll(PDO::FETCH_OBJ) : null
 // *********************
 */
 if (isset($_REQUEST['tracking'])) {
-	foreach ($_REQUEST['tracking'] as $track) {
-		$track['characterID'] 		= isset($track['characterID']) ? $track['characterID'] : null;
-		$track['characterName'] 	= isset($track['characterName']) ? $track['characterName'] : null;
-		$track['systemID'] 			= isset($track['systemID']) ? $track['systemID'] : null;
-		$track['systemName'] 		= isset($track['systemName']) ? $track['systemName'] : null;
-		$track['stationID'] 		= isset($track['stationID']) && !empty($track['stationID']) ? $track['stationID'] : null;
-		$track['stationName'] 		= isset($track['stationName']) && !empty($track['stationName']) ? $track['stationName'] : null;
-		$track['shipID'] 			= isset($track['shipID']) ? $track['shipID'] : null;
-		$track['shipName'] 			= isset($track['shipName']) ? $track['shipName'] : null;
-		$track['shipTypeID'] 		= isset($track['shipTypeID']) ? $track['shipTypeID'] : null;
-		$track['shipTypeName'] 		= isset($track['shipTypeName']) ? $track['shipTypeName'] : null;
+	try {
+		$trackingData = SecurityHelper::validateTrackingArray($_REQUEST['tracking']);
+
+		foreach ($trackingData as $track) {
+			// Data is already validated and sanitized by SecurityHelper
 
 		$query = 'INSERT INTO tracking (userID, characterID, characterName, systemID, systemName, stationID, stationName, shipID, shipName, shipTypeID, shipTypeName, maskID)
 		VALUES (:userID, :characterID, :characterName, :systemID, :systemName, :stationID, :stationName, :shipID, :shipName, :shipTypeID, :shipTypeName, :maskID)
@@ -131,6 +126,10 @@ if (isset($_REQUEST['tracking'])) {
 		$stmt->bindValue(':shipTypeName', $track['shipTypeName']);
 		$stmt->bindValue(':maskID', $maskID);
 		$stmt->execute();
+		}
+	} catch (InvalidArgumentException $e) {
+		error_log("Tracking validation error: " . $e->getMessage());
+		$output['error'] = 'Invalid tracking data: ' . $e->getMessage();
 	}
 }
 
@@ -144,12 +143,19 @@ if ($_REQUEST['mode'] == 'init' || isset($_REQUEST['esi']) || isset($_REQUEST['e
 	$output['esi'] = array();
 
 	if (isset($_REQUEST['esiDelete'])) {
-		foreach ($_REQUEST['esiDelete'] as $characterID) {
-			$query = 'DELETE FROM esi WHERE userID = :userID AND characterID = :characterID';
-			$stmt = $mysql->prepare($query);
-			$stmt->bindValue(':userID', $userID);
-			$stmt->bindValue(':characterID', $characterID);
-			$stmt->execute();
+		try {
+			$characterIDs = SecurityHelper::validateIntArray($_REQUEST['esiDelete'], 'esiDelete', false);
+
+			foreach ($characterIDs as $characterID) {
+				$query = 'DELETE FROM esi WHERE userID = :userID AND characterID = :characterID';
+				$stmt = $mysql->prepare($query);
+				$stmt->bindValue(':userID', $userID);
+				$stmt->bindValue(':characterID', $characterID, PDO::PARAM_INT);
+				$stmt->execute();
+			}
+		} catch (InvalidArgumentException $e) {
+			error_log("ESI delete validation error: " . $e->getMessage());
+			$output['error'] = 'Invalid esiDelete data: ' . $e->getMessage();
 		}
 	}
 

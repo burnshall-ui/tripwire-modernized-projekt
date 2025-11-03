@@ -218,4 +218,117 @@ class SecurityHelper {
         }
         return hash_equals($_SESSION['csrf_token'], $token);
     }
+
+    /**
+     * Validate an array of integers
+     *
+     * @param mixed $values The array to validate
+     * @param string $paramName Parameter name for error messages
+     * @param bool $required Whether the parameter is required
+     * @return array The validated array of integers
+     * @throws InvalidArgumentException If validation fails
+     */
+    public static function validateIntArray($values, string $paramName, bool $required = true): array {
+        if ($values === null || $values === '') {
+            if ($required) {
+                throw new InvalidArgumentException("Parameter '{$paramName}' is required");
+            }
+            return [];
+        }
+
+        if (!is_array($values)) {
+            throw new InvalidArgumentException("Parameter '{$paramName}' must be an array");
+        }
+
+        $validated = [];
+        foreach ($values as $key => $value) {
+            try {
+                $validated[$key] = self::validateInt($value, "{$paramName}[{$key}]", true);
+            } catch (InvalidArgumentException $e) {
+                throw new InvalidArgumentException("Invalid value in {$paramName}[{$key}]: " . $e->getMessage());
+            }
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Validate an array of strings
+     *
+     * @param mixed $values The array to validate
+     * @param string $paramName Parameter name for error messages
+     * @param bool $required Whether the parameter is required
+     * @param int $maxLength Maximum allowed length for each string
+     * @return array The validated array of strings
+     * @throws InvalidArgumentException If validation fails
+     */
+    public static function validateStringArray($values, string $paramName, bool $required = true, int $maxLength = 255): array {
+        if ($values === null || $values === '') {
+            if ($required) {
+                throw new InvalidArgumentException("Parameter '{$paramName}' is required");
+            }
+            return [];
+        }
+
+        if (!is_array($values)) {
+            throw new InvalidArgumentException("Parameter '{$paramName}' must be an array");
+        }
+
+        $validated = [];
+        foreach ($values as $key => $value) {
+            try {
+                $validated[$key] = self::validateString($value, "{$paramName}[{$key}]", true, $maxLength);
+            } catch (InvalidArgumentException $e) {
+                throw new InvalidArgumentException("Invalid value in {$paramName}[{$key}]: " . $e->getMessage());
+            }
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Validate a tracking array (specific structure for refresh.php)
+     *
+     * @param mixed $tracking The tracking array to validate
+     * @return array The validated tracking data
+     * @throws InvalidArgumentException If validation fails
+     */
+    public static function validateTrackingArray($tracking): array {
+        if (!is_array($tracking)) {
+            throw new InvalidArgumentException("Tracking data must be an array");
+        }
+
+        $validated = [];
+        foreach ($tracking as $index => $track) {
+            if (!is_array($track)) {
+                throw new InvalidArgumentException("Tracking item [{$index}] must be an array");
+            }
+
+            $validatedTrack = [];
+
+            // Validate integer fields (optional)
+            $intFields = ['characterID', 'systemID', 'stationID', 'shipID', 'shipTypeID'];
+            foreach ($intFields as $field) {
+                if (isset($track[$field]) && $track[$field] !== null && $track[$field] !== '') {
+                    $validatedTrack[$field] = self::validateInt($track[$field], "tracking[{$index}][{$field}]", false);
+                } else {
+                    $validatedTrack[$field] = null;
+                }
+            }
+
+            // Validate string fields (optional)
+            $stringFields = ['characterName', 'systemName', 'stationName', 'shipName', 'shipTypeName'];
+            foreach ($stringFields as $field) {
+                if (isset($track[$field]) && $track[$field] !== null && $track[$field] !== '') {
+                    $validatedTrack[$field] = self::validateString($track[$field], "tracking[{$index}][{$field}]", false, 100);
+                } else {
+                    $validatedTrack[$field] = null;
+                }
+            }
+
+            $validated[] = $validatedTrack;
+        }
+
+        return $validated;
+    }
 }
