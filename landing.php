@@ -1,6 +1,10 @@
 <?php
 
 require_once('config.php');
+require_once('services/SecurityHelper.php');
+
+// Generate CSRF token for login form (session is started in public/index.php)
+$csrfToken = session_id() ? SecurityHelper::getCsrfToken() : '';
 
 ?>
 <!DOCTYPE html>
@@ -176,6 +180,7 @@ require_once('config.php');
 					<div id="reg" class="pane">
 						<form method="POST">
 							<input type="hidden" name="mode" value="login" />
+							<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>" />
 							<!-- fake fields are a workaround for chrome autofill -->
 							<input class="hidden" type="text" name="fakeusernameremembered" />
 							<input class="hidden" type="password" name="fakepasswordremembered" autocomplete="off" />

@@ -21,6 +21,7 @@ if(!isset($_SESSION['userID'])) {
 
 require_once('../config.php');
 require_once('../db.inc.php');
+require_once('../services/SecurityHelper.php');
 
 header('Content-Type: application/json');
 
@@ -33,6 +34,11 @@ $username = isset($_REQUEST['username'])?$_REQUEST['username']:null;
 $old_username = isset($_REQUEST['username'])?$_SESSION['username']:null;
 $mask = isset($_REQUEST['mask'])?$_REQUEST['mask']:null;
 $output = null;
+
+// CSRF Protection for write operations (not needed for mode=get)
+if ($mode !== 'get' || $password || $username) {
+	SecurityHelper::requireCsrfToken();
+}
 
 if ($mode == 'get') {
 	$query = 'SELECT options FROM preferences WHERE userID = :userID';

@@ -25,6 +25,7 @@ if (!session_id()) {
 require_once('../config.php');
 require_once('../db.inc.php');
 require_once('../esi.class.php');
+require_once('../services/SecurityHelper.php');
 
 $esi = new esi();
 
@@ -71,6 +72,9 @@ function random_str(
 }
 
 if ($mode == 'login') {
+	// CSRF Protection for username/password login
+	SecurityHelper::requireCsrfToken();
+
 	$username 	= isset($_REQUEST['username'])?$_REQUEST['username']:null;
 	$password 	= isset($_REQUEST['password'])?$_REQUEST['password']:null;
 	$method		= 'user';

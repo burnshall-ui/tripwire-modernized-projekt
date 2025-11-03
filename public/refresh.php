@@ -19,6 +19,9 @@ require_once('../settings.php');
 require_once('../db.inc.php');
 require_once('../services/SecurityHelper.php');
 
+// CSRF Protection - refresh.php writes tracking data, ESI tokens, and active status
+SecurityHelper::requireCsrfToken();
+
 header('Content-Type: application/json');
 /**
 // *********************

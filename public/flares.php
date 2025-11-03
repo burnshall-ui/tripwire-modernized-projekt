@@ -23,6 +23,9 @@ require_once('../config.php');
 require_once('../db.inc.php');
 require_once('../services/SecurityHelper.php');
 
+// CSRF Protection - flares.php always writes (INSERT or DELETE)
+SecurityHelper::requireCsrfToken();
+
 header('Content-Type: application/json');
 
 $mask = $_SESSION['mask'];

@@ -72,6 +72,12 @@ try {
 	);
 
 	$output = null;
+
+	// CSRF Protection for write operations (not needed for edit/find/list modes)
+	$writeModes = ['create', 'save', 'delete', 'join', 'leave'];
+	if (in_array($mode, $writeModes, true)) {
+		SecurityHelper::requireCsrfToken();
+	}
 } catch (InvalidArgumentException $e) {
 	http_response_code(400);
 	$output['error'] = 'Validation error: ' . $e->getMessage();

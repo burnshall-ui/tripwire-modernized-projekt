@@ -220,6 +220,45 @@ class SecurityHelper {
     }
 
     /**
+     * Require valid CSRF token or terminate request
+     * Checks for token in $_REQUEST['csrf_token'] or custom HTTP header
+     *
+     * @param bool $allowHeader Also check X-CSRF-Token header (default: true)
+     * @throws Exception If CSRF token is invalid or missing
+     * @return void
+     */
+    public static function requireCsrfToken(bool $allowHeader = true): void {
+        // Get token from request or header
+        $token = null;
+
+        if (isset($_REQUEST['csrf_token'])) {
+            $token = $_REQUEST['csrf_token'];
+        } elseif ($allowHeader && isset($_SERVER['HTTP_X_CSRF_TOKEN'])) {
+            $token = $_SERVER['HTTP_X_CSRF_TOKEN'];
+        }
+
+        // Validate token
+        if (!$token || !self::verifyCsrfToken($token)) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'CSRF token validation failed',
+                'message' => 'Invalid or missing CSRF token. Please refresh the page and try again.'
+            ]);
+            exit();
+        }
+    }
+
+    /**
+     * Get CSRF token for use in forms/AJAX (generates if not exists)
+     *
+     * @return string The CSRF token
+     */
+    public static function getCsrfToken(): string {
+        return self::generateCsrfToken();
+    }
+
+    /**
      * Validate an array of integers
      *
      * @param mixed $values The array to validate

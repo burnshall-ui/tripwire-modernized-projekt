@@ -21,6 +21,10 @@ if(!isset($_SESSION['userID'])) {
 
 require_once('../config.php');
 require_once('../db.inc.php');
+require_once('../services/SecurityHelper.php');
+
+// CSRF Protection - comments.php always writes (save/delete/sticky)
+SecurityHelper::requireCsrfToken();
 
 header('Content-Type: application/json');
 

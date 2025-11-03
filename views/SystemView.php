@@ -23,11 +23,16 @@ class SystemView {
     public function renderHead(): void {
         $system = $this->data['system'] ?? 'Unknown';
         $systemID = $this->data['systemID'] ?? '0';
+
+        // Load SecurityHelper to generate CSRF token
+        require_once(__DIR__ . '/../services/SecurityHelper.php');
+        $csrfToken = SecurityHelper::getCsrfToken();
         ?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
     <meta name="system" content="<?= htmlspecialchars($system) ?>">
     <meta name="systemID" content="<?= htmlspecialchars($systemID) ?>">
     <meta name="server" content="<?= htmlspecialchars(CDN_DOMAIN) ?>">
@@ -170,6 +175,28 @@ class SystemView {
 
             <!-- JS Includes -->
             <script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/jquery-3.3.1.min.js"></script>
+
+            <!-- CSRF Protection - Add token to all AJAX requests -->
+            <script type="text/javascript">
+            (function($) {
+                // Get CSRF token from meta tag
+                var csrfToken = $('meta[name="csrf-token"]').attr('content');
+
+                if (csrfToken) {
+                    // Setup global AJAX default to include CSRF token
+                    $.ajaxSetup({
+                        data: { csrf_token: csrfToken },
+                        beforeSend: function(xhr, settings) {
+                            // Also send via header for better compatibility
+                            xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+                        }
+                    });
+
+                    console.log('[CSRF] Protection enabled - Token will be sent with all AJAX requests');
+                }
+            })(jQuery);
+            </script>
+
             <script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/jquery-ui-1.12.1.min.js"></script>
             <script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/jquery.tablesorter.combined.min.js"></script>
             <script type="text/javascript" src="//<?= CDN_DOMAIN ?>/js/jquery.duration-picker.js"></script>
