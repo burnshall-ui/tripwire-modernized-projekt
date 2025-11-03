@@ -15,7 +15,7 @@ A comprehensive security audit was performed on the Tripwire Modernized project.
 | Category | Fixed | Remaining | Priority |
 |----------|-------|-----------|----------|
 | **Critical Issues** | 1 | 0 | 🔴 |
-| **High Issues** | 5 | 2 | 🟠 |
+| **High Issues** | 6 | 1 | 🟠 |
 | **Medium Issues** | 0 | 2 | 🟡 |
 
 ---
@@ -77,37 +77,30 @@ A comprehensive security audit was performed on the Tripwire Modernized project.
 
 ---
 
-## ⚠️ REMAINING ISSUES
+### 4. ✅ Enum Validation in masks.php (HIGH)
 
-### 4. ⚠️ Enum Validation in masks.php (HIGH)
+**Issue:** Multiple parameters in `public/masks.php` accepted arbitrary values without validation.
 
-**Issue:** `type` parameter accepts arbitrary strings without validation.
+**Affected Parameters:**
+- `mode` - No validation, used directly in conditionals
+- `type` - No validation, risked logic bypass
+- `find` - Used directly in SQL query without validation
+- `name`, `adds`, `deletes` - No validation
 
-**File:** `public/masks.php` (Line 28)
+**Fix:**
+- Added comprehensive enum validation for `mode` (7 valid values)
+- Added enum validation for `type` (corp, personal, corporate)
+- Added enum validation for `find` (personal, corporate)
+- Added string validation for `name` (max 100 chars)
+- Added array validation for `adds` and `deletes`
+- All validation in try-catch with proper error handling
+- HTTP 400 on validation errors
 
-```php
-$type = isset($_REQUEST['type'])?$_REQUEST['type']:null;
-// ...
-if ($type == 'corp' && !$_SESSION['admin']) {
-    // No validation that $type is only 'corp' or 'personal'
-}
-```
-
-**Risk:** Unexpected behavior, logic bypass
-
-**Recommended Fix:**
-```php
-require_once('../services/SecurityHelper.php');
-
-$type = SecurityHelper::validateEnum(
-    $_REQUEST['type'] ?? null,
-    ['corp', 'personal'],
-    'type',
-    true
-);
-```
+**Commit:** `d128fba`
 
 ---
+
+## ⚠️ REMAINING ISSUES
 
 ### 5. ⚠️ Missing XSS Protection (HIGH)
 
@@ -200,15 +193,15 @@ headers: {
 
 | Category | Score | Notes |
 |----------|-------|-------|
-| **Input Validation** | 8/10 | ✅ Comprehensive validation including arrays |
+| **Input Validation** | 9/10 | ✅ Comprehensive validation with enums and arrays |
 | **XSS Protection** | 4/10 | ⚠️ Minimal escaping, needs improvement |
 | **SQL Injection** | 9/10 | ✅ Prepared statements used consistently |
 | **Authentication** | 8/10 | ✅ Session checks present |
 | **CSRF Protection** | 2/10 | ⚠️ Not implemented |
 | **Secret Management** | 8/10 | ✅ Fixed, but passwords need changing |
-| **Error Handling** | 7/10 | ✅ Improved with SecurityHelper |
+| **Error Handling** | 8/10 | ✅ Improved with comprehensive validation |
 
-**Overall Score: 6.6/10** (Improved from 4.2/10)
+**Overall Score: 6.9/10** (Improved from 4.2/10)
 
 ---
 
@@ -258,7 +251,7 @@ SecurityHelper::verifyCsrfToken(string $token): bool
 
 ### High Priority
 - [x] Fix array input validation in `public/refresh.php`
-- [ ] Add enum validation to `public/masks.php`
+- [x] Add enum validation to `public/masks.php`
 - [ ] Implement XSS escaping in all views
 
 ### Medium Priority
