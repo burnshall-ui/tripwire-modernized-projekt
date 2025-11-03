@@ -15,7 +15,7 @@ A comprehensive security audit was performed on the Tripwire Modernized project.
 | Category | Fixed | Remaining | Priority |
 |----------|-------|-----------|----------|
 | **Critical Issues** | 1 | 0 | 🔴 |
-| **High Issues** | 4 | 3 | 🟠 |
+| **High Issues** | 5 | 2 | 🟠 |
 | **Medium Issues** | 0 | 2 | 🟡 |
 
 ---
@@ -58,59 +58,26 @@ A comprehensive security audit was performed on the Tripwire Modernized project.
 
 ---
 
-## ⚠️ REMAINING ISSUES
+### 3. ✅ Array Input Validation (HIGH)
 
-### 3. ⚠️ Array Input Validation (HIGH)
-
-**Issue:** Some endpoints accept array inputs without validation.
+**Issue:** Array inputs in `public/refresh.php` were not validated, risking type confusion and injection attacks.
 
 **Affected Files:**
+- ✅ `public/refresh.php` (Line 104) - tracking array
+- ✅ `public/refresh.php` (Line 147) - esiDelete array
 
-#### `public/refresh.php` (Line 104)
-```php
-if (isset($_REQUEST['tracking'])) {
-    foreach ($_REQUEST['tracking'] as $track) {
-        // No validation of array structure or values
-        $track['characterID'] = isset($track['characterID']) ? $track['characterID'] : null;
-        // ...
-    }
-}
-```
+**Fix:**
+- Created `SecurityHelper::validateIntArray()` for integer arrays
+- Created `SecurityHelper::validateStringArray()` for string arrays
+- Created `SecurityHelper::validateTrackingArray()` for complex tracking structure
+- Added comprehensive validation in `refresh.php` with error handling
+- All array elements now validated for type and length
 
-#### `public/refresh.php` (Line 147)
-```php
-if (isset($_REQUEST['esiDelete'])) {
-    foreach ($_REQUEST['esiDelete'] as $characterID) {
-        // No validation that characterID is an integer
-        $query = 'DELETE FROM esi WHERE userID = :userID AND characterID = :characterID';
-        // ...
-    }
-}
-```
-
-**Risk:** Type confusion, injection via array keys, invalid data
-
-**Recommended Fix:**
-```php
-// Add to SecurityHelper.php
-public static function validateIntArray(array $values, string $paramName): array {
-    $validated = [];
-    foreach ($values as $key => $value) {
-        $validated[$key] = self::validateInt($value, "{$paramName}[{$key}]", true);
-    }
-    return $validated;
-}
-
-// Usage in refresh.php
-if (isset($_REQUEST['esiDelete']) && is_array($_REQUEST['esiDelete'])) {
-    $characterIDs = SecurityHelper::validateIntArray($_REQUEST['esiDelete'], 'esiDelete');
-    foreach ($characterIDs as $characterID) {
-        // Now safe to use
-    }
-}
-```
+**Commit:** `df6bcaa`
 
 ---
+
+## ⚠️ REMAINING ISSUES
 
 ### 4. ⚠️ Enum Validation in masks.php (HIGH)
 
@@ -233,7 +200,7 @@ headers: {
 
 | Category | Score | Notes |
 |----------|-------|-------|
-| **Input Validation** | 7/10 | ✅ Basic validation added, ⚠️ arrays need work |
+| **Input Validation** | 8/10 | ✅ Comprehensive validation including arrays |
 | **XSS Protection** | 4/10 | ⚠️ Minimal escaping, needs improvement |
 | **SQL Injection** | 9/10 | ✅ Prepared statements used consistently |
 | **Authentication** | 8/10 | ✅ Session checks present |
@@ -241,7 +208,7 @@ headers: {
 | **Secret Management** | 8/10 | ✅ Fixed, but passwords need changing |
 | **Error Handling** | 7/10 | ✅ Improved with SecurityHelper |
 
-**Overall Score: 6.4/10** (Improved from 4.2/10)
+**Overall Score: 6.6/10** (Improved from 4.2/10)
 
 ---
 
@@ -257,6 +224,9 @@ SecurityHelper::validateInt($value, $paramName, $required = true): ?int
 SecurityHelper::validateString($value, $paramName, $required = true, $maxLength = 255): ?string
 SecurityHelper::validateAlphanumeric($value, $paramName, $required = true, $maxLength = 50): ?string
 SecurityHelper::validateEnum($value, $allowedValues, $paramName, $required = true): ?string
+SecurityHelper::validateIntArray($values, $paramName, $required = true): array
+SecurityHelper::validateStringArray($values, $paramName, $required = true, $maxLength = 255): array
+SecurityHelper::validateTrackingArray($tracking): array
 ```
 
 #### Request Helpers
@@ -287,7 +257,7 @@ SecurityHelper::verifyCsrfToken(string $token): bool
 - [ ] **CHANGE MYSQL PASSWORDS** (compromised)
 
 ### High Priority
-- [ ] Fix array input validation in `public/refresh.php`
+- [x] Fix array input validation in `public/refresh.php`
 - [ ] Add enum validation to `public/masks.php`
 - [ ] Implement XSS escaping in all views
 
