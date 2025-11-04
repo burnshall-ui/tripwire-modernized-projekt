@@ -31,10 +31,11 @@ class RedisSessionHandler implements SessionHandlerInterface {
         return $this->redis->sessionDestroy($id);
     }
 
-    public function gc(int $max_lifetime): bool {
+    #[\ReturnTypeWillChange]
+    public function gc(int $max_lifetime): int|false {
         // Redis handles expiration automatically
         // We could implement manual cleanup here if needed
-        return true;
+        return 0; // Return number of deleted sessions (0 = none deleted, handled by Redis TTL)
     }
 
     /**

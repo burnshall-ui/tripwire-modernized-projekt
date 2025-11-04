@@ -8,28 +8,33 @@ class SystemController {
     }
 
     public function resolveSystem(string $requestedSystem): array {
-        // Verify correct system otherwise goto default...
-        $query = 'SELECT solarSystemName, systems.solarSystemID, regionName, regions.regionID
-                  FROM ' . EVE_DUMP . '.mapSolarSystems systems
-                  LEFT JOIN ' . EVE_DUMP . '.mapRegions regions ON regions.regionID = systems.regionID
-                  WHERE solarSystemName = :system';
+        try {
+            // Try to verify system from EVE SDE if available
+            $query = 'SELECT solarSystemName, systems.solarSystemID, regionName, regions.regionID
+                      FROM ' . EVE_DUMP . '.mapSolarSystems systems
+                      LEFT JOIN ' . EVE_DUMP . '.mapRegions regions ON regions.regionID = systems.regionID
+                      WHERE solarSystemName = :system';
 
-        $stmt = $this->db->prepare($query);
-        $stmt->bindValue(':system', $requestedSystem);
-        $stmt->execute();
+            $stmt = $this->db->prepare($query);
+            $stmt->bindValue(':system', $requestedSystem);
+            $stmt->execute();
 
-        if ($row = $stmt->fetchObject()) {
-            return [
-                'system' => $row->solarSystemName,
-                'systemID' => $row->solarSystemID,
-                'region' => $row->regionName,
-                'regionID' => $row->regionID
-            ];
+            if ($row = $stmt->fetchObject()) {
+                return [
+                    'system' => $row->solarSystemName,
+                    'systemID' => $row->solarSystemID,
+                    'region' => $row->regionName,
+                    'regionID' => $row->regionID
+                ];
+            }
+        } catch (PDOException $e) {
+            // EVE SDE not available - fall back to default
+            // This is expected if EVE Static Data Export is not imported
         }
 
-        // Default to Jita
+        // Default to Jita if system not found or EVE SDE unavailable
         return [
-            'system' => 'Jita',
+            'system' => $requestedSystem ?: 'Jita',
             'systemID' => '30000142',
             'region' => 'The Forge',
             'regionID' => 10000002

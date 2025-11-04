@@ -145,7 +145,20 @@ class esi {
             return false;
         }
 
-        return json_decode($result);
+        $decoded = json_decode($result);
+
+        // Check if result is valid and has roles property
+        if (!is_object($decoded)) {
+            $this->lastError = 'Invalid response from ESI roles endpoint: ' . $result;
+            return (object)['roles' => []];
+        }
+
+        // Ensure roles property exists
+        if (!isset($decoded->roles)) {
+            $decoded->roles = [];
+        }
+
+        return $decoded;
     }
 
     public function getCharacterTitles($characterID) {
@@ -156,10 +169,20 @@ class esi {
             return false;
         }
 
+        $decoded = json_decode($result);
+
+        // Check if result is valid JSON array
+        if (!is_array($decoded)) {
+            $this->lastError = 'Invalid response from ESI titles endpoint: ' . $result;
+            return [];
+        }
+
         // convert array of objects into just an array of titles
         $titles = [];
-        foreach (json_decode($result) AS $title) {
-            $titles[] = $title->name;
+        foreach ($decoded AS $title) {
+            if (is_object($title) && isset($title->name)) {
+                $titles[] = $title->name;
+            }
         }
 
         return $titles;

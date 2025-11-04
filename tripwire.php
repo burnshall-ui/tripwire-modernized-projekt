@@ -1,6 +1,7 @@
 <?php
 
 // Initialize Redis-based session handling
+require_once('services/RedisService.php');
 require_once('services/RedisSessionHandler.php');
 $redisSessionInitialized = RedisSessionHandler::init();
 
@@ -77,7 +78,7 @@ $view->setData('systemID', $systemData['systemID']);
 $view->setData('region', $systemData['region']);
 $view->setData('regionID', $systemData['regionID']);
 $view->setData('user', $userService->getUserData());
-$view->setData('session', $_SESSION);
+$view->setData('session', $_SESSION ?? []);
 
 // Render the page
 $view->renderHead();

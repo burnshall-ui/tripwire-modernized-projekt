@@ -7,7 +7,7 @@ class RedisService {
 
     public function __construct(array $config = []) {
         $this->config = array_merge([
-            'host' => 'redis',
+            'host' => 'tripwire-redis',
             'port' => 6379,
             'password' => null,
             'database' => 0,
@@ -63,9 +63,13 @@ class RedisService {
         if (!$this->connected || !$this->redis) {
             return false;
         }
-        
+
         try {
-            return $this->redis->ping() === '+PONG';
+            $ping = $this->redis->ping();
+            // Different Redis extension versions return different values:
+            // - Older versions: '+PONG' (string)
+            // - Newer versions: true (boolean)
+            return $ping === true || $ping === '+PONG' || $ping === 'PONG';
         } catch (Exception $e) {
             error_log("Redis ping failed: " . $e->getMessage());
             $this->connected = false;

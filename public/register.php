@@ -123,13 +123,19 @@ if ($mode == 'user') {
 		$roles = $esi->getCharacterRoles($esi->characterID);
 		$titles = $esi->getCharacterTitles($esi->characterID);
 
-    if (!$roles || !is_array($titles)) {
-      // Something crazy happened on CCP's end
-  		header('Location: ./?error=registeradmin-unknown#register#admin');
+    // Validate responses
+    if ($roles === false || $titles === false) {
+      // ESI API call failed
+  		header('Location: ./?error=registeradmin-esi#register#admin');
   		exit();
     }
 
-		if ($roles && (!empty(array_intersect($roles->roles, $adminRoles)) || !empty(array_intersect($titles, $adminTitles)))) {
+    // Ensure we have arrays to work with
+    $rolesArray = (is_object($roles) && isset($roles->roles)) ? $roles->roles : [];
+    $titlesArray = is_array($titles) ? $titles : [];
+
+		// Check if user has required roles or titles
+		if (!empty(array_intersect($rolesArray, $adminRoles)) || !empty(array_intersect($titlesArray, $adminTitles))) {
 			$query = 'UPDATE characters SET admin = 1 WHERE characterID = :characterID';
 			$stmt = $mysql->prepare($query);
 			$stmt->bindValue(':characterID', $esi->characterID);

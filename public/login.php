@@ -212,31 +212,6 @@ if ($mode == 'login') {
 
 			if ($account = $stmt->fetchObject()) {
 				// check and update character corp and admin powers
-		    if (!$character = $esi->getCharacter($account->characterID)) {
-		      // Something crazy happened on CCP's end
-		      header('Location: ./?error=login-unknown#login#sso');
-		      exit();
-		    }
-
-		    if (!$corporation = $esi->getCorporation($character->corporation_id)) {
-		      // Something crazy happened on CCP's end
-		      header('Location: ./?error=login-unknown#login#sso');
-		      exit();
-		    }
-
-				$query = 'UPDATE characters SET corporationID = :corporationID, corporationName = :corporationName, ban = 0, admin = 0 WHERE characterID = :characterID AND corporationID <> :corporationID';
-				$stmt = $mysql->prepare($query);
-				$stmt->bindValue(':characterID', $account->characterID);
-				$stmt->bindValue(':corporationID', $character->corporation_id);
-				$stmt->bindValue(':corporationName', $corporation->name);
-				$stmt->execute();
-				if ($stmt->rowCount()) {
-					$query = 'SELECT id, username, password, accounts.ban, characterID, characterName, corporationID, corporationName, admin, super, options FROM accounts LEFT JOIN preferences ON id = preferences.userID LEFT JOIN characters ON id = characters.userID WHERE characterID = :characterID';
-					$stmt = $mysql->prepare($query);
-					$stmt->bindValue(':characterID', $esi->characterID);
-					$stmt->execute();
-					$account = $stmt->fetchObject();
-				}
 
 				$options = json_decode($account->options);
 
