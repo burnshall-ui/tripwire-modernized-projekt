@@ -52,7 +52,7 @@ class SignaturesApi extends ApiController {
     }
 
     private function handleGet(string $maskId): void {
-        $systemId = $this->getValidatedInt('systemId');
+        $systemId = $this->getValidatedInt('systemId', false);
 
         try {
             if ($systemId) {
@@ -110,6 +110,15 @@ class SignaturesApi extends ApiController {
         $id = $this->getValidatedInt('id');
         if (!$id) return;
 
+        $systemId = $this->getValidatedInt('systemID', false);
+        if ($systemId === null) {
+            $systemId = $this->getSystemIdForSignature($id, $maskId);
+            if ($systemId === null) {
+                $this->errorResponse('Signature not found or access denied', 404);
+                return;
+            }
+        }
+
         $data = [
             'signatureID' => trim($_REQUEST['signatureID'] ?? ''),
             'type' => trim($_REQUEST['type'] ?? ''),
@@ -125,10 +134,10 @@ class SignaturesApi extends ApiController {
             $success = $this->signatureService->update($id, $data);
             if ($success) {
                 // Invalidate caches
-                $this->invalidateCaches($data['systemID'], $maskId);
+                $this->invalidateCaches($systemId, $maskId);
 
                 // Get updated signature for broadcasting
-                $signatures = $this->signatureService->getBySystem($data['systemID'], $maskId);
+                $signatures = $this->signatureService->getBySystem($systemId, $maskId);
                 $updatedSignature = null;
                 foreach ($signatures as $sig) {
                     if ($sig->id == $id) {
@@ -138,7 +147,7 @@ class SignaturesApi extends ApiController {
                 }
 
                 if ($updatedSignature) {
-                    $this->signatureService->broadcastUpdate($maskId, $data['systemID'], $updatedSignature->toArray());
+                    $this->signatureService->broadcastUpdate($maskId, $systemId, $updatedSignature->toArray());
                 }
 
                 $this->jsonResponse(['success' => true]);
@@ -186,6 +195,16 @@ class SignaturesApi extends ApiController {
         } catch (Exception $e) {
             $this->errorResponse('Failed to delete signature: ' . $e->getMessage(), 500);
         }
+    }
+
+    private function getSystemIdForSignature(int $id, string $maskId): ?int {
+        $stmt = $this->db->prepare('SELECT systemID FROM signatures WHERE id = :id AND maskID = :maskID');
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':maskID', $maskId);
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (int)$row['systemID'] : null;
     }
 }
 

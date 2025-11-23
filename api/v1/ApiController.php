@@ -30,13 +30,22 @@ abstract class ApiController {
         return true;
     }
 
-    protected function getValidatedInt(string $field): ?int {
-        $value = filter_input(INPUT_REQUEST, $field, FILTER_VALIDATE_INT);
-        if ($value === false) {
+    protected function getValidatedInt(string $field, bool $required = true): ?int {
+        $value = $_REQUEST[$field] ?? null;
+
+        if ($value === null || $value === '') {
+            if ($required) {
+                $this->errorResponse("Missing required field: {$field}");
+            }
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
             $this->errorResponse("Invalid integer value for field: {$field}");
             return null;
         }
-        return $value;
+
+        return (int)$value;
     }
 
     protected function checkPermission(string $maskId): bool {
